@@ -1,0 +1,65 @@
+# =============================================================================
+# AADS — Autonomous AI Data Scientist
+# =============================================================================
+
+# ── Reference repositories (read-only, not part of our codebase) ──
+references/
+
+# ── Generated run artifacts ──
+aads/storage/runs/
+aads/storage/cache/
+Generated_Project_*/
+
+# ── MLflow ──
+mlruns/
+mlartifacts/
+
+# ── Python ──
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+*.whl
+
+# ── Virtual environments ──
+.venv/
+venv/
+env/
+ENV/
+
+# ── IDE ──
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ── Environment & secrets ──
+.env
+.env.local
+.env.*.local
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Jupyter ──
+.ipynb_checkpoints/
+
+# ── pytest ──
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# ── mypy ──
+.mypy_cache/
+
+# ── Distribution ──
+*.tar.gz
+*.zip

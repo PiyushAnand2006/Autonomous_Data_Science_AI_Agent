@@ -1,0 +1,210 @@
+"""
+AADS Master Orchestrator — coordinates all specialist agents through the full
+autonomous end-to-end data-science lifecycle.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any, Optional, Union
+
+import pandas as pd
+
+from aads.agents.artifact_manager import ArtifactManager
+from aads.agents.cleaning import CleaningAgent
+from aads.agents.data_quality import DataQualityAgent
+from aads.agents.eda import EDAAgent
+from aads.agents.evaluation import EvaluationAgent
+from aads.agents.feature_engineering import FeatureEngineeringAgent
+from aads.agents.leakage_guard import LeakageGuard
+from aads.agents.ml_experiment import MLExperimentAgent
+from aads.agents.notebook_generator import NotebookGeneratorAgent
+from aads.agents.planner import GoalPlannerAgent
+from aads.agents.preprocessing import PreprocessingAgent
+from aads.agents.profiler import ProfilerAgent
+from aads.agents.replanning import ReplanningAgent
+from aads.agents.report_generator import ReportGeneratorAgent
+from aads.agents.split_manager import SplitManager
+from aads.core.config import AADSConfig
+from aads.core.logging import get_logger
+from aads.core.schemas import AutonomyMode
+from aads.core.state import RunState
+from aads.tools.filesystem.hashing import compute_file_hash
+from aads.tools.loaders.registry import LoaderRegistry
+
+logger = get_logger(__name__)
+
+
+class AADSOrchestrator:
+    """The master supervisor agent coordinating the entire AADS lifecycle."""
+
+    def __init__(
+        self,
+        config: Optional[AADSConfig] = None,
+        storage_root: Optional[Union[str, Path]] = None,
+    ) -> None:
+        self.config = config or AADSConfig()
+        self.storage_root = Path(storage_root) if storage_root else self.config.storage_root
+        self.loader_registry = LoaderRegistry()
+
+    def run_pipeline(
+        self,
+        data_path: Union[str, Path],
+        user_objective: str,
+        target_column: Optional[str] = None,
+        run_id: Optional[str] = None,
+        autonomy_mode: AutonomyMode = AutonomyMode.FULLY_AUTONOMOUS,
+    ) -> dict[str, Any]:
+        """Execute the complete end-to-end autonomous data-science workflow.
+
+        Args:
+            data_path: Path to the raw dataset file (CSV, XLSX, Parquet).
+            user_objective: Natural language task or goal description.
+            target_column: Optional explicit target column name.
+            run_id: Optional unique run identifier (auto-generated if None).
+            autonomy_mode: Fully autonomous, semi-autonomous, or manual.
+
+        Returns:
+            Dictionary summarizing all generated artifacts, model metrics, and final RunState.
+        """
+        source_path = Path(data_path)
+        if not source_path.exists():
+            raise FileNotFoundError(f"Dataset file not found: {source_path}")
+
+        # 1. Initialize State & Artifact Manager
+        state = RunState.create(
+            user_objective=user_objective,
+            target_column=target_column,
+            autonomy_mode=autonomy_mode,
+            random_seed=self.config.random_seed,
+        )
+        if run_id:
+            state.run_id = run_id
+
+        artifact_mgr = ArtifactManager(storage_root=self.storage_root)
+        run_dir = artifact_mgr.initialize_run(state.run_id)
+
+        logger.info("orchestrator_pipeline_started", run_id=state.run_id, data_path=str(source_path))
+
+        # 2. Immutable Raw Data Copy
+        raw_copy_path = artifact_mgr.copy_raw_data(source_path)
+        file_hash = compute_file_hash(raw_copy_path)
+
+        # 3. Load Dataset
+        raw_df = self.loader_registry.load(raw_copy_path)
+
+        # 4. Agent: Profiler
+        profiler = ProfilerAgent(config=self.config, artifact_manager=artifact_mgr)
+        profile = profiler.run(
+            df=raw_df,
+            state=state,
+            file_path=str(raw_copy_path),
+            file_hash=file_hash,
+            file_format=source_path.suffix.lstrip(".").lower(),
+        )
+
+        # 5. Agent: Goal & Planner
+        planner = GoalPlannerAgent(config=self.config)
+        plan = planner.plan(profile=profile, state=state)
+
+        # 6. Agent: Data Quality
+        dq_agent = DataQualityAgent(config=self.config, artifact_manager=artifact_mgr)
+        dq_report = dq_agent.run(df=raw_df, state=state)
+
+        # 7. Agent: EDA & Visualization
+        eda_agent = EDAAgent(config=self.config, artifact_manager=artifact_mgr)
+        eda_findings = eda_agent.run(df=raw_df, state=state)
+
+        # 8. Agent: Data Cleaning
+        cleaning_agent = CleaningAgent(config=self.config, artifact_manager=artifact_mgr)
+        cleaned_df, cleaning_log = cleaning_agent.run(df=raw_df, state=state)
+
+        # 9. Agent: Split Manager
+        split_mgr = SplitManager(config=self.config, artifact_manager=artifact_mgr)
+        X_train, X_val, X_test, y_train, y_val, y_test = split_mgr.run(df=cleaned_df, state=state)
+
+        # 10. Agent: Leakage Guard
+        leakage_guard = LeakageGuard(config=self.config, artifact_manager=artifact_mgr)
+        leakage_guard.run(X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test, state=state)
+
+        # 11. Agent: Feature Engineering
+        fe_agent = FeatureEngineeringAgent(config=self.config, artifact_manager=artifact_mgr)
+        X_train_fe, X_test_fe, X_val_fe, fe_log = fe_agent.run(
+            X_train=X_train, X_test=X_test, y_train=y_train, state=state, X_val=X_val
+        )
+
+        # 12. Agent: Preprocessing Pipeline
+        prep_agent = PreprocessingAgent(config=self.config, artifact_manager=artifact_mgr)
+        X_train_enc, X_test_enc, X_val_enc, preprocessor = prep_agent.run(
+            X_train=X_train_fe, X_test=X_test_fe, state=state, X_val=X_val_fe
+        )
+
+        # 13. Agent: ML Experimentation
+        X_eval_enc = X_val_enc if (X_val_enc is not None and len(X_val_enc) > 0) else X_test_enc
+        y_eval = y_val if (y_val is not None and len(y_val) > 0) else y_test
+
+        ml_agent = MLExperimentAgent(config=self.config, artifact_manager=artifact_mgr)
+        best_model, best_model_name, best_metrics, experiments = ml_agent.run(
+            X_train=X_train_enc,
+            y_train=y_train,
+            X_eval=X_eval_enc,
+            y_eval=y_eval,
+            state=state,
+        )
+
+        # 14. Agent: Evaluation & Diagnostics
+        eval_agent = EvaluationAgent(config=self.config, artifact_manager=artifact_mgr)
+        eval_report = eval_agent.run(
+            model=best_model,
+            model_name=best_model_name,
+            X_test=X_test_enc,
+            y_test=y_test,
+            state=state,
+        )
+
+        # 15. Agent: Replanning
+        replanning_agent = ReplanningAgent(config=self.config, artifact_manager=artifact_mgr)
+        replanning_agent.run(evaluation_report=eval_report, state=state, current_iteration=1)
+
+        # 16. Agent: Notebook Generation
+        nb_agent = NotebookGeneratorAgent(config=self.config, artifact_manager=artifact_mgr)
+        notebook_dict = nb_agent.run(
+            state=state,
+            best_model_name=best_model_name,
+            raw_data_filename=raw_copy_path.name,
+        )
+
+        # 17. Agent: Report Generation
+        report_agent = ReportGeneratorAgent(config=self.config, artifact_manager=artifact_mgr)
+        exec_summary = report_agent.run(
+            state=state,
+            best_model_name=best_model_name,
+            best_metrics=best_metrics,
+            eval_report=eval_report,
+        )
+
+        # 18. Persist final RunState JSON to 10_Metadata/run_state.json
+        state_save_path = run_dir / "10_Metadata" / "run_state.json"
+        state.save(state_save_path)
+
+        logger.info(
+            "orchestrator_pipeline_finished_successfully",
+            run_id=state.run_id,
+            completed_phases=state.completed_phases,
+            best_model=best_model_name,
+            artifacts_count=len(artifact_mgr.artifacts),
+        )
+
+        return {
+            "run_id": state.run_id,
+            "run_dir": str(run_dir),
+            "state": state,
+            "best_model_name": best_model_name,
+            "best_metrics": best_metrics,
+            "task_plan": plan,
+            "data_quality_report": dq_report,
+            "eda_findings": eda_findings,
+            "total_artifacts": len(artifact_mgr.artifacts),
+            "executive_summary": exec_summary,
+        }

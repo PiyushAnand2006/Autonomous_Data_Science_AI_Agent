@@ -1,0 +1,47 @@
+# =============================================================================
+# AADS — Autonomous AI Data Scientist — Requirements
+# =============================================================================
+
+# ── Data ──
+pandas>=2.0
+numpy>=1.24
+polars>=0.20
+pyarrow>=14.0
+openpyxl>=3.1
+
+# ── ML ──
+scikit-learn>=1.3
+xgboost>=2.0
+catboost>=1.2
+
+# ── Visualization ──
+matplotlib>=3.8
+plotly>=5.18
+
+# ── Experiment tracking ──
+mlflow>=2.10
+
+# ── Notebook generation ──
+nbformat>=5.9
+nbclient>=0.9
+
+# ── Orchestration / LLM ──
+langchain>=0.3
+langgraph>=0.2
+pydantic>=2.5
+
+# ── UI (placeholder) ──
+streamlit>=1.30
+
+# ── API (placeholder) ──
+fastapi>=0.110
+uvicorn>=0.27
+
+# ── Logging & config ──
+structlog>=24.1
+rich>=13.7
+python-dotenv>=1.0
+
+# ── Testing ──
+pytest>=7.0
+pytest-cov>=4.0
