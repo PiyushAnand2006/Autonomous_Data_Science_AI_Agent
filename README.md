@@ -77,9 +77,6 @@ Orchestrator → Profiler → Planner → Data Quality → EDA
 | **Semi-Autonomous** | Routine actions auto, high-impact decisions need approval |
 | **Manual Approval** | Major decisions require explicit user approval |
 
-## Contributing
-
-See `MASTER_PLAN .md` for the complete design specification and phase-by-phase implementation plan.
 
 ## License
 
