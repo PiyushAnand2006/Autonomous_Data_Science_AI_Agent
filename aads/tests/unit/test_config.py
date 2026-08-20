@@ -25,7 +25,9 @@ class TestAADSConfigDefaults:
 
     def test_default_llm_provider(self):
         cfg = AADSConfig()
-        assert cfg.llm_provider == "google"
+        assert cfg.llm_provider == "openrouter"
+        assert cfg.execution_mode == "local"
+        assert cfg.top_models_count == 4
 
     def test_default_llm_temperature(self):
         cfg = AADSConfig()

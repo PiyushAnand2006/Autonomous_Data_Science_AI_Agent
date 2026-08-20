@@ -22,9 +22,12 @@ from aads.core.schemas import (
     DecisionRecord,
     EDAFindings,
     ExecutionEngine,
+    ModelMetadata,
+    NotebookValidationResult,
     PlanStep,
     TaskPlan,
     TaskType,
+    TopModelRecord,
 )
 from aads.core.state import RunState
 
@@ -45,6 +48,9 @@ __all__ = [
     "DataQualityReport",
     "EDAFindings",
     "ExecutionEngine",
+    "TopModelRecord",
+    "ModelMetadata",
+    "NotebookValidationResult",
     "AADSError",
     "DataLoadError",
     "LeakageError",

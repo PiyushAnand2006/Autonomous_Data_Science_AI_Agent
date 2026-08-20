@@ -8,7 +8,9 @@ references/
 # ── Generated run artifacts ──
 aads/storage/runs/
 aads/storage/cache/
+storage/
 Generated_Project_*/
+AI_Data_Science_Project_*/
 
 # ── MLflow ──
 mlruns/
@@ -42,6 +44,8 @@ ENV/
 .env
 .env.local
 .env.*.local
+.aads_user_settings.json
+.aads_settings.json
 
 # ── OS ──
 .DS_Store
