@@ -145,14 +145,19 @@ class ArtifactManager:
         dest = self.get_path("raw_data") / src.name
         shutil.copy2(str(src), str(dest))
 
+        canonical_name = f"original_dataset{src.suffix}"
+        canonical_dest = self.get_path("raw_data") / canonical_name
+        if canonical_dest != dest:
+            shutil.copy2(str(src), str(canonical_dest))
+
         record = ArtifactRecord(
             artifact_type=ArtifactType.RAW_DATA,
-            path=str(dest.relative_to(run_dir)),
-            description=f"Immutable copy of uploaded file: {src.name}",
+            path=str(canonical_dest.relative_to(run_dir)),
+            description=f"Immutable copy of original dataset: {canonical_name}",
         )
         self._artifacts.append(record)
 
-        logger.info("raw_data_copied", source=str(src), dest=str(dest))
+        logger.info("raw_data_copied", source=str(src), dest=str(dest), canonical=str(canonical_dest))
         return dest
 
     def register_artifact(

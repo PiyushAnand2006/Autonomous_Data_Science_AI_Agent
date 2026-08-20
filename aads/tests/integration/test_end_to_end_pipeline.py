@@ -74,14 +74,17 @@ class TestEndToEndPipeline:
 
         run_dir = Path(result["run_dir"])
 
-        # Check all 10 contract directories contain their expected artifacts
+        # Check all contract directories contain their expected artifacts
         assert (run_dir / "01_Raw_Data" / "raw_churn_data.csv").exists()
-        assert (run_dir / "02_Cleaned_Data" / "cleaned_dataset.parquet").exists()
-        assert (run_dir / "03_Feature_Engineered_Data" / "X_train_fe.parquet").exists()
-        assert (run_dir / "04_ML_Ready_Data" / "X_train_encoded.parquet").exists()
-        assert (run_dir / "05_Notebook" / "pipeline_notebook.ipynb").exists()
-        assert (run_dir / "06_Models" / "best_model.pkl").exists()
+        assert (run_dir / "02_Cleaned_Data" / "cleaned_dataset.csv").exists()
+        assert (run_dir / "03_Feature_Engineered_Data" / "feature_engineered_dataset.csv").exists()
+        assert (run_dir / "04_ML_Ready_Data" / "ml_ready_dataset.csv").exists()
+        assert (run_dir / "05_Notebook" / "autonomous_analysis.ipynb").exists()
+        assert (run_dir / "05_Notebook" / "notebook_validation.json").exists()
         assert (run_dir / "06_Models" / "preprocessing_pipeline.pkl").exists()
+        assert (run_dir / "06_Models" / "model_comparison.json").exists()
+        assert (run_dir / "06_Models" / "model_metadata.json").exists()
+        assert len(list((run_dir / "06_Models").glob("model_*.pkl"))) >= 3
         assert (run_dir / "07_Visualizations" / "correlations" / "correlation_matrix.png").exists()
         assert (run_dir / "08_Reports" / "executive_summary.md").exists()
         assert (run_dir / "09_Experiments" / "experiment_results.csv").exists()
@@ -123,4 +126,10 @@ class TestEndToEndPipeline:
         assert result["state"].task_type == TaskType.REGRESSION
         assert "rmse" in result["best_metrics"]
         assert "r2" in result["best_metrics"]
-        assert (Path(result["run_dir"]) / "06_Models" / "best_model.pkl").exists()
+        run_dir = Path(result["run_dir"])
+        assert (run_dir / "02_Cleaned_Data" / "cleaned_dataset.csv").exists()
+        assert (run_dir / "03_Feature_Engineered_Data" / "feature_engineered_dataset.csv").exists()
+        assert (run_dir / "04_ML_Ready_Data" / "ml_ready_dataset.csv").exists()
+        assert (run_dir / "05_Notebook" / "autonomous_analysis.ipynb").exists()
+        assert (run_dir / "06_Models" / "model_comparison.json").exists()
+        assert len(list((run_dir / "06_Models").glob("model_*.pkl"))) >= 3

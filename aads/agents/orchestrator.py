@@ -45,7 +45,11 @@ class AADSOrchestrator:
         storage_root: Optional[Union[str, Path]] = None,
     ) -> None:
         self.config = config or AADSConfig()
-        self.storage_root = Path(storage_root) if storage_root else self.config.storage_root
+        if storage_root and str(storage_root).strip():
+            p = Path(storage_root)
+            self.storage_root = p.resolve() if p.is_absolute() else (self.config.project_root / p).resolve()
+        else:
+            self.storage_root = self.config.storage_root
         self.loader_registry = LoaderRegistry()
 
     def run_pipeline(
@@ -55,6 +59,7 @@ class AADSOrchestrator:
         target_column: Optional[str] = None,
         run_id: Optional[str] = None,
         autonomy_mode: AutonomyMode = AutonomyMode.FULLY_AUTONOMOUS,
+        progress_callback: Optional[Any] = None,
     ) -> dict[str, Any]:
         """Execute the complete end-to-end autonomous data-science workflow.
 
@@ -64,13 +69,26 @@ class AADSOrchestrator:
             target_column: Optional explicit target column name.
             run_id: Optional unique run identifier (auto-generated if None).
             autonomy_mode: Fully autonomous, semi-autonomous, or manual.
+            progress_callback: Optional callable receiving real-time phase updates.
 
         Returns:
             Dictionary summarizing all generated artifacts, model metrics, and final RunState.
         """
-        source_path = Path(data_path)
+        import os
+        os.chdir(self.config.project_root)
+
+        source_path = Path(data_path).resolve()
         if not source_path.exists():
             raise FileNotFoundError(f"Dataset file not found: {source_path}")
+
+        def _notify(msg: str) -> None:
+            if progress_callback:
+                try:
+                    progress_callback(msg)
+                except Exception:
+                    pass
+
+        _notify("📦 Initializing run state and copying raw data...")
 
         # 1. Initialize State & Artifact Manager
         state = RunState.create(
@@ -94,7 +112,18 @@ class AADSOrchestrator:
         # 3. Load Dataset
         raw_df = self.loader_registry.load(raw_copy_path)
 
+        # Initialize LLM if in AI Mode
+        llm = None
+        if self.config.execution_mode == "ai":
+            try:
+                from aads.core.llm import get_llm
+                llm = get_llm(self.config)
+                _notify(f"🤖 [AI Mode: {self.config.llm_provider.upper()} ({self.config.llm_model})] Initialized provider reasoning client.")
+            except Exception as e:
+                _notify(f"⚠️ [AI Mode Warning] Failed to initialize provider ({e}). Falling back to local offline reasoning.")
+
         # 4. Agent: Profiler
+        _notify("🔍 Profiling dataset dimensions, statistics, and column semantics...")
         profiler = ProfilerAgent(config=self.config, artifact_manager=artifact_mgr)
         profile = profiler.run(
             df=raw_df,
@@ -105,42 +134,57 @@ class AADSOrchestrator:
         )
 
         # 5. Agent: Goal & Planner
-        planner = GoalPlannerAgent(config=self.config)
+        if self.config.execution_mode == "ai":
+            _notify(f"🤖 [AI Planning] Querying {self.config.llm_provider.upper()} ({self.config.llm_model}) for strategy & task formulation...")
+        else:
+            _notify("📋 Formulating task strategy and deterministic execution plan...")
+        planner = GoalPlannerAgent(config=self.config, llm=llm)
         plan = planner.plan(profile=profile, state=state)
 
         # 6. Agent: Data Quality
+        _notify("🛡️ Auditing data quality, missing values, and anomalies...")
         dq_agent = DataQualityAgent(config=self.config, artifact_manager=artifact_mgr)
         dq_report = dq_agent.run(df=raw_df, state=state)
 
         # 7. Agent: EDA & Visualization
+        _notify("📊 Generating exploratory data analysis charts and correlation plots...")
         eda_agent = EDAAgent(config=self.config, artifact_manager=artifact_mgr)
         eda_findings = eda_agent.run(df=raw_df, state=state)
 
         # 8. Agent: Data Cleaning
+        _notify("🧹 Sanitizing missing values, date columns, and deduplicating...")
         cleaning_agent = CleaningAgent(config=self.config, artifact_manager=artifact_mgr)
         cleaned_df, cleaning_log = cleaning_agent.run(df=raw_df, state=state)
 
         # 9. Agent: Split Manager
+        _notify("✂️ Partitioning data into train/val/test holdouts...")
         split_mgr = SplitManager(config=self.config, artifact_manager=artifact_mgr)
         X_train, X_val, X_test, y_train, y_val, y_test = split_mgr.run(df=cleaned_df, state=state)
 
         # 10. Agent: Leakage Guard
+        _notify("🔒 Verifying strict data leakage guards across splits...")
         leakage_guard = LeakageGuard(config=self.config, artifact_manager=artifact_mgr)
         leakage_guard.run(X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test, state=state)
 
         # 11. Agent: Feature Engineering
+        _notify("⚙️ Constructing domain interactions and feature transformations...")
         fe_agent = FeatureEngineeringAgent(config=self.config, artifact_manager=artifact_mgr)
         X_train_fe, X_test_fe, X_val_fe, fe_log = fe_agent.run(
             X_train=X_train, X_test=X_test, y_train=y_train, state=state, X_val=X_val
         )
 
         # 12. Agent: Preprocessing Pipeline
-        prep_agent = PreprocessingAgent(config=self.config, artifact_manager=artifact_mgr)
+        if self.config.execution_mode == "ai":
+            _notify(f"🛠️ [AI Preprocessing] Analyzing feature cardinalities & fitting adaptive encoder pipeline with {self.config.llm_provider.upper()}...")
+        else:
+            _notify("🛠️ Fitting adaptive encoder and scaling pipeline...")
+        prep_agent = PreprocessingAgent(config=self.config, artifact_manager=artifact_mgr, llm=llm)
         X_train_enc, X_test_enc, X_val_enc, preprocessor = prep_agent.run(
             X_train=X_train_fe, X_test=X_test_fe, state=state, X_val=X_val_fe
         )
 
         # 13. Agent: ML Experimentation
+        _notify("🤖 Training candidate machine learning models and evaluating leaderboard...")
         X_eval_enc = X_val_enc if (X_val_enc is not None and len(X_val_enc) > 0) else X_test_enc
         y_eval = y_val if (y_val is not None and len(y_val) > 0) else y_test
 
@@ -154,6 +198,7 @@ class AADSOrchestrator:
         )
 
         # 14. Agent: Evaluation & Diagnostics
+        _notify("📈 Computing residual diagnostics and holdout test metrics...")
         eval_agent = EvaluationAgent(config=self.config, artifact_manager=artifact_mgr)
         eval_report = eval_agent.run(
             model=best_model,
@@ -167,21 +212,28 @@ class AADSOrchestrator:
         replanning_agent = ReplanningAgent(config=self.config, artifact_manager=artifact_mgr)
         replanning_agent.run(evaluation_report=eval_report, state=state, current_iteration=1)
 
-        # 16. Agent: Notebook Generation
+        # 16. Agent: Notebook Generation & Validation
+        _notify("📓 Synthesizing and programmatically validating Jupyter Notebook...")
         nb_agent = NotebookGeneratorAgent(config=self.config, artifact_manager=artifact_mgr)
         notebook_dict = nb_agent.run(
             state=state,
             best_model_name=best_model_name,
             raw_data_filename=raw_copy_path.name,
+            top_models=ml_agent.top_models,
         )
 
         # 17. Agent: Report Generation
-        report_agent = ReportGeneratorAgent(config=self.config, artifact_manager=artifact_mgr)
+        if self.config.execution_mode == "ai":
+            _notify(f"📄 [AI Reporting] Querying {self.config.llm_provider.upper()} ({self.config.llm_model}) for Chief AI Scientist analytical narrative...")
+        else:
+            _notify("📄 Synthesizing comprehensive in-depth executive summary...")
+        report_agent = ReportGeneratorAgent(config=self.config, artifact_manager=artifact_mgr, llm=llm)
         exec_summary = report_agent.run(
             state=state,
             best_model_name=best_model_name,
             best_metrics=best_metrics,
             eval_report=eval_report,
+            top_models=ml_agent.top_models,
         )
 
         # 18. Persist final RunState JSON to 10_Metadata/run_state.json
@@ -193,6 +245,7 @@ class AADSOrchestrator:
             run_id=state.run_id,
             completed_phases=state.completed_phases,
             best_model=best_model_name,
+            top_models_count=len(ml_agent.top_models),
             artifacts_count=len(artifact_mgr.artifacts),
         )
 
@@ -202,6 +255,7 @@ class AADSOrchestrator:
             "state": state,
             "best_model_name": best_model_name,
             "best_metrics": best_metrics,
+            "top_models": ml_agent.top_models,
             "task_plan": plan,
             "data_quality_report": dq_report,
             "eda_findings": eda_findings,
