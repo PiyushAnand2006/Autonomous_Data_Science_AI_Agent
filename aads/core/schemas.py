@@ -336,3 +336,40 @@ class EDAFindings(BaseModel):
     correlation_insights: list[str] = Field(default_factory=list)
     generated_visualizations: list[str] = Field(default_factory=list, description="Relative paths to saved charts")
 
+
+# ---------------------------------------------------------------------------
+# Phase 6 & 7 — Model Export & Notebook Validation Models
+# ---------------------------------------------------------------------------
+
+class TopModelRecord(BaseModel):
+    """Metadata for a selected top-performing model."""
+
+    rank: int = Field(description="1-based rank (1 is best)")
+    model: str = Field(description="Name/algorithm of the model")
+    filename: str = Field(description="Exported model filename (e.g. model_01_xgboost.pkl)")
+    validation_metrics: dict[str, float] = Field(default_factory=dict)
+    test_metrics: dict[str, float] = Field(default_factory=dict)
+    training_time: float = Field(default=0.0, description="Training time in seconds")
+    feature_set: str = Field(default="feature_engineered", description="Feature set used")
+    selection_reason: str = Field(default="", description="Why this model was selected for its rank")
+
+
+class ModelMetadata(BaseModel):
+    """Comprehensive export metadata for all top selected models."""
+
+    top_models: list[TopModelRecord] = Field(default_factory=list)
+    total_models_evaluated: int = 0
+    selection_metric: str = "primary_metric"
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class NotebookValidationResult(BaseModel):
+    """Validation report from programmatic top-to-bottom notebook execution."""
+
+    success: bool = True
+    executed_cells: int = 0
+    total_cells: int = 0
+    duration_seconds: float = 0.0
+    errors: list[str] = Field(default_factory=list)
+    validated_at: datetime = Field(default_factory=datetime.utcnow)
+
