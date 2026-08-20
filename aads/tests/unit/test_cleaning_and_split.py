@@ -100,6 +100,7 @@ class TestPhase4Agents:
         # Check artifact
         clean_dir = mgr.get_path("cleaned_data")
         assert (clean_dir / "cleaned_dataset.parquet").exists()
+        assert (clean_dir / "cleaned_dataset.csv").exists()
 
         # 2. Split Manager
         split_agent = SplitManager(artifact_manager=mgr)

@@ -78,6 +78,7 @@ class TestPhase5Agents:
         fe_agent = FeatureEngineeringAgent(artifact_manager=mgr)
         X_tr_fe, X_te_fe, _, _ = fe_agent.run(X_train, X_test, y_train, state)
         assert "feature_engineering" in state.completed_phases
+        assert (mgr.get_path("feature_engineered_data") / "feature_engineered_dataset.csv").exists()
         assert (mgr.get_path("feature_engineered_data") / "X_train_fe.parquet").exists()
 
         # 2. Preprocessing Agent
@@ -85,4 +86,5 @@ class TestPhase5Agents:
         X_tr_enc, X_te_enc, _, pipeline = prep_agent.run(X_tr_fe, X_te_fe, state)
         assert "preprocessing" in state.completed_phases
         assert (mgr.get_path("models") / "preprocessing_pipeline.pkl").exists()
+        assert (mgr.get_path("ml_ready_data") / "ml_ready_dataset.csv").exists()
         assert (mgr.get_path("ml_ready_data") / "X_train_encoded.parquet").exists()

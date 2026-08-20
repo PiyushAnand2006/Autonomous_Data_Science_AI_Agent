@@ -61,14 +61,22 @@ class CleaningAgent:
             try:
                 clean_dir = self.artifact_manager.get_path("cleaned_data")
 
-                # Save parquet / csv
-                clean_data_path = clean_dir / "cleaned_dataset.parquet"
-                cleaned_df.to_parquet(clean_data_path, index=False)
+                # Save csv and parquet
+                clean_csv_path = clean_dir / "cleaned_dataset.csv"
+                cleaned_df.to_csv(clean_csv_path, index=False)
+
+                clean_parquet_path = clean_dir / "cleaned_dataset.parquet"
+                cleaned_df.to_parquet(clean_parquet_path, index=False)
 
                 self.artifact_manager.register_artifact(
                     artifact_type=ArtifactType.CLEANED_DATA,
-                    path=clean_data_path,
-                    description=f"Cleaned dataset ({len(cleaned_df)} rows × {len(cleaned_df.columns)} cols)",
+                    path=clean_csv_path,
+                    description=f"Cleaned dataset CSV ({len(cleaned_df)} rows × {len(cleaned_df.columns)} cols)",
+                )
+                self.artifact_manager.register_artifact(
+                    artifact_type=ArtifactType.CLEANED_DATA,
+                    path=clean_parquet_path,
+                    description=f"Cleaned dataset Parquet ({len(cleaned_df)} rows × {len(cleaned_df.columns)} cols)",
                 )
 
                 # Save log

@@ -79,7 +79,21 @@ class FeatureEngineeringAgent:
             try:
                 fe_dir = self.artifact_manager.get_path("feature_engineered_data")
 
+                # Export full feature engineered dataset as CSV and Parquet
+                full_fe_df = pd.concat([X_train_fe, X_test_fe], axis=0).reset_index(drop=True)
+                fe_csv_path = fe_dir / "feature_engineered_dataset.csv"
+                full_fe_df.to_csv(fe_csv_path, index=False)
+
+                fe_parquet_path = fe_dir / "feature_engineered_dataset.parquet"
+                full_fe_df.to_parquet(fe_parquet_path, index=False)
+
                 X_train_fe.to_parquet(fe_dir / "X_train_fe.parquet", index=False)
+
+                self.artifact_manager.register_artifact(
+                    artifact_type=ArtifactType.FEATURE_ENGINEERED_DATA,
+                    path=fe_csv_path,
+                    description=f"Feature-engineered dataset CSV ({len(full_fe_df)} rows × {len(full_fe_df.columns)} cols)",
+                )
                 self.artifact_manager.register_artifact(
                     artifact_type=ArtifactType.FEATURE_ENGINEERED_DATA,
                     path=fe_dir / "X_train_fe.parquet",

@@ -69,18 +69,48 @@ def clean_dataset(
             cleaned = cleaned.dropna(subset=[target_column]).reset_index(drop=True)
             log["dropped_rows"] += target_nulls
 
-    # 4. Drop columns with excessive missingness (> threshold) or zero variance (constants)
+    # 4. Handle Date & High-Cardinality ID columns
     cols_to_drop = []
     for col in cleaned.columns:
         if col == target_column:
             continue
-        missing_pct = cleaned[col].isna().sum() / len(cleaned) if len(cleaned) > 0 else 0
-        unique_cnt = cleaned[col].dropna().nunique()
+        series = cleaned[col]
+        missing_pct = series.isna().sum() / len(cleaned) if len(cleaned) > 0 else 0
+        unique_cnt = series.dropna().nunique()
 
         if missing_pct >= missing_drop_threshold:
             cols_to_drop.append((col, f"High missingness ({round(missing_pct*100, 1)}%)"))
+            continue
         elif unique_cnt <= 1:
             cols_to_drop.append((col, "Zero variance (constant column)"))
+            continue
+
+        # Check if column is a string / object
+        if not pd.api.types.is_numeric_dtype(series) and not pd.api.types.is_bool_dtype(series):
+            # Attempt date parsing if string looks like date
+            if "date" in str(col).lower() or "time" in str(col).lower():
+                try:
+                    parsed_dt = pd.to_datetime(series, errors="coerce")
+                    if parsed_dt.notna().sum() > 0.5 * len(cleaned):
+                        # Extract calendar features if not already present
+                        for feat_name, dt_attr in [
+                            (f"{col}_year", parsed_dt.dt.year),
+                            (f"{col}_month", parsed_dt.dt.month),
+                            (f"{col}_day", parsed_dt.dt.day),
+                            (f"{col}_dayofweek", parsed_dt.dt.dayofweek),
+                            (f"{col}_quarter", parsed_dt.dt.quarter),
+                        ]:
+                            if feat_name not in cleaned.columns:
+                                cleaned[feat_name] = dt_attr.fillna(dt_attr.median())
+                        cols_to_drop.append((col, "Parsed into calendar attributes (raw datetime string dropped)"))
+                        continue
+                except Exception:
+                    pass
+
+            # Detect high-cardinality ID columns (unique count > 100 and high ratio)
+            if unique_cnt > 100 and (unique_cnt / len(cleaned)) > 0.3:
+                cols_to_drop.append((col, f"High-cardinality identifier ({unique_cnt} unique values)"))
+                continue
 
     for col, reason in cols_to_drop:
         cleaned = cleaned.drop(columns=[col])
