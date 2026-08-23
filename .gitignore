@@ -2,13 +2,11 @@
 # AADS — Autonomous AI Data Scientist
 # =============================================================================
 
-# ── Reference repositories (read-only, not part of our codebase) ──
-references/
-
 # ── Generated run artifacts ──
 aads/storage/runs/
 aads/storage/cache/
 storage/
+storage/temp_uploads/
 Generated_Project_*/
 AI_Data_Science_Project_*/
 
