@@ -465,12 +465,82 @@ with tabs[3]:
                                 )
                     st.markdown("---")
 
-        # 2. Full Experiment Benchmark Table
+        # 2. Full Experiment Benchmark Table — all evaluated models ranked
+        st.subheader("📋 Complete Benchmark of All Evaluated Candidates")
+
+        # Prefer model_comparison.json (richer: includes training times)
+        comp_json = models_dir / "model_comparison.json"
         exp_csv = run_dir / "09_Experiments" / "experiment_results.csv"
-        if exp_csv.exists():
-            exp_df = pd.read_csv(exp_csv)
-            st.subheader("📋 Complete Benchmark of All Evaluated Candidates")
-            st.dataframe(exp_df, use_container_width=True)
+
+        bench_df = None
+        if comp_json.exists():
+            try:
+                bench_df = pd.read_json(comp_json)
+            except Exception:
+                pass
+
+        if bench_df is None and exp_csv.exists():
+            try:
+                bench_df = pd.read_csv(exp_csv)
+            except Exception:
+                pass
+
+        if bench_df is not None and not bench_df.empty:
+            # Determine primary sort metric from task type
+            task_type_val = res.get("state")
+            is_regression = False
+            is_clustering = False
+            if task_type_val is not None:
+                tt = getattr(task_type_val, "task_type", None)
+                if tt is not None:
+                    is_regression = tt.value == "regression" if hasattr(tt, "value") else str(tt) == "regression"
+                    is_clustering = tt.value == "clustering" if hasattr(tt, "value") else str(tt) == "clustering"
+
+            if is_regression:
+                sort_col = "rmse" if "rmse" in bench_df.columns else None
+                sort_ascending = True
+            elif is_clustering:
+                sort_col = "silhouette" if "silhouette" in bench_df.columns else None
+                sort_ascending = False
+            else:
+                sort_col = "f1" if "f1" in bench_df.columns else ("accuracy" if "accuracy" in bench_df.columns else None)
+                sort_ascending = False
+
+            if sort_col and sort_col in bench_df.columns:
+                bench_df = bench_df.sort_values(sort_col, ascending=sort_ascending).reset_index(drop=True)
+
+            # Add rank column
+            bench_df.insert(0, "Rank", range(1, len(bench_df) + 1))
+
+            # Rename 'model' column to 'Model' for readability
+            if "model" in bench_df.columns:
+                bench_df = bench_df.rename(columns={"model": "Model"})
+
+            # Rename training time column
+            if "training_time_seconds" in bench_df.columns:
+                bench_df = bench_df.rename(columns={"training_time_seconds": "Training Time (s)"})
+
+            # Drop internal columns not useful for display
+            for drop_col in ["experiment_id", "is_best"]:
+                if drop_col in bench_df.columns:
+                    bench_df = bench_df.drop(columns=[drop_col])
+
+            # Round numeric columns for clean display
+            numeric_cols = bench_df.select_dtypes(include=["float64", "float32"]).columns
+            bench_df[numeric_cols] = bench_df[numeric_cols].round(4)
+
+            # Highlight the best model row (Rank 1)
+            def _highlight_best(row):
+                if row["Rank"] == 1:
+                    return ["background-color: #dcfce7; font-weight: bold"] * len(row)
+                return [""] * len(row)
+
+            styled_df = bench_df.style.apply(_highlight_best, axis=1)
+            st.dataframe(styled_df, use_container_width=True, hide_index=True)
+
+            st.caption(f"Showing all {len(bench_df)} evaluated model candidates, ranked by {'RMSE (lower is better)' if is_regression else 'Silhouette (higher is better)' if is_clustering else 'F1 Score (higher is better)'}. The best model is highlighted in green.")
+        else:
+            st.info("No benchmark data found for this run.")
 
     else:
         st.info("Run a pipeline to view the model leaderboard and top selected models.")

@@ -15,6 +15,7 @@ AI_Data_Science_Project_*/
 # ── MLflow ──
 mlruns/
 mlartifacts/
+catboost_info/
 
 # ── Python ──
 __pycache__/
