@@ -46,6 +46,7 @@ from sklearn.metrics import (
 from sklearn.mixture import GaussianMixture
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier, KNeighborsRegressor
+from sklearn.preprocessing import LabelEncoder
 from sklearn.svm import LinearSVC, LinearSVR
 from sklearn.tree import DecisionTreeClassifier, DecisionTreeRegressor
 
@@ -388,7 +389,27 @@ def train_and_evaluate_model(
             metrics = {"silhouette": 0.0, "davies_bouldin": 999.0, "n_clusters": 1}
 
     else:
-        model.fit(X_tr, y_tr)
+        # If classification with string/categorical target, encode target to 0..K-1 integers
+        le = None
+        if task_type == TaskType.CLASSIFICATION and y_tr is not None:
+            is_str_target = (
+                pd.api.types.is_object_dtype(y_tr)
+                or pd.api.types.is_string_dtype(y_tr)
+                or pd.api.types.is_categorical_dtype(y_tr)
+                or model_name in ["XGBClassifier", "LGBMClassifier"]
+            )
+            if is_str_target:
+                le = LabelEncoder()
+                y_tr_fit = le.fit_transform(y_tr)
+                y_val_fit = le.transform(y_val) if y_val is not None and len(y_val) > 0 else y_val
+            else:
+                y_tr_fit = y_tr
+                y_val_fit = y_val
+        else:
+            y_tr_fit = y_tr
+            y_val_fit = y_val
+
+        model.fit(X_tr, y_tr_fit)
         training_time = round(time.perf_counter() - start_time, 4)
         y_pred = model.predict(X_val)
         metrics: dict[str, float] = {}
@@ -405,28 +426,32 @@ def train_and_evaluate_model(
                 "mse": round(mse, 4),
             }
         else:
-            acc = float(accuracy_score(y_val, y_pred))
-            is_binary = len(np.unique(y_val)) == 2
+            # Evaluate using y_val_fit for numerical consistency
+            eval_target = y_val_fit if le is not None else y_val
+            eval_pred = y_pred
+
+            acc = float(accuracy_score(eval_target, eval_pred))
+            is_binary = len(np.unique(eval_target)) == 2
             f1 = float(
                 f1_score(
-                    y_val,
-                    y_pred,
+                    eval_target,
+                    eval_pred,
                     average="binary" if is_binary else "weighted",
                     zero_division=0,
                 )
             )
             prec = float(
                 precision_score(
-                    y_val,
-                    y_pred,
+                    eval_target,
+                    eval_pred,
                     average="binary" if is_binary else "weighted",
                     zero_division=0,
                 )
             )
             rec = float(
                 recall_score(
-                    y_val,
-                    y_pred,
+                    eval_target,
+                    eval_pred,
                     average="binary" if is_binary else "weighted",
                     zero_division=0,
                 )
@@ -442,9 +467,16 @@ def train_and_evaluate_model(
             if is_binary and hasattr(model, "predict_proba"):
                 try:
                     y_prob = model.predict_proba(X_val)[:, 1]
-                    metrics["roc_auc"] = round(float(roc_auc_score(y_val, y_prob)), 4)
+                    metrics["roc_auc"] = round(float(roc_auc_score(eval_target, y_prob)), 4)
                 except Exception:
                     pass
+
+        # If LabelEncoder was used, inverse transform predictions back to original class strings
+        if le is not None and hasattr(le, "inverse_transform"):
+            try:
+                y_pred = le.inverse_transform(y_pred)
+            except Exception:
+                pass
 
     logger.info(
         "model_evaluation_completed",

@@ -35,3 +35,8 @@ streamlit>=1.30
 structlog>=24.1
 rich>=13.7
 python-dotenv>=1.0
+
+# ── REST API ──
+fastapi>=0.115
+uvicorn[standard]>=0.30
+python-multipart>=0.0.9

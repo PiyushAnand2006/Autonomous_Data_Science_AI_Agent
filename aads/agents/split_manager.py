@@ -51,7 +51,19 @@ class SplitManager:
         Returns:
             Tuple of (X_train, X_val, X_test, y_train, y_val, y_test).
         """
-        target = state.target_column or df.columns[-1]
+        target = state.target_column
+        if not target or target not in df.columns:
+            found = False
+            if target:
+                for col in df.columns:
+                    if col.lower() == str(target).lower():
+                        target = col
+                        found = True
+                        break
+            if not found:
+                target = df.columns[-1]
+            state.target_column = target
+
         t_size = test_size if test_size is not None else self.config.test_size
         v_size = val_size if val_size is not None else self.config.validation_size
         task_type = state.task_type or TaskType.CLASSIFICATION

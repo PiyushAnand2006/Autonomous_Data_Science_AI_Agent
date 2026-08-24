@@ -3,6 +3,8 @@
 <div align="center">
 
 [![Live Demo](https://img.shields.io/badge/🚀%20Live%20Demo-Streamlit%20Cloud-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://autonomous-data-science-ai-agent.streamlit.app/)
+[![React](https://img.shields.io/badge/Frontend-React%2018%20%7C%20Vite-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![LangChain](https://img.shields.io/badge/Framework-LangChain%20Core-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white)](https://python.langchain.com/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
@@ -19,6 +21,7 @@
 - [✨ Key Features](#-key-features)
 - [🤖 Agentic Multi-Agent Architecture](#-agentic-multi-agent-architecture)
 - [🛠️ Tech Stack](#️-tech-stack)
+- [🎨 Modern UI & Experience](#-modern-ui--experience)
 - [🚀 Live Demo & How to Use](#-live-demo--how-to-use)
 - [📦 Standardized 10-Folder Artifact Contract](#-standardized-10-folder-artifact-contract)
 - [⚙️ Local Installation & Quickstart](#️-local-installation--quickstart)
@@ -30,10 +33,13 @@
 ## ✨ Key Features
 
 - 🧠 **Autonomous Decision-Making**: Coordinates 14+ specialist agents to profile, clean, engineer features, benchmark ML models, and generate analytical executive reports without manual intervention.
-- 🌐 **Multi-Provider LLM Intelligence**: Pluggable agent reasoning powered by **OpenRouter, Google Gemini, Anthropic Claude, OpenAI, Groq, or Ollama (Local)**.
-- ⚡ **Local & Offline Execution Mode**: Deterministic rule-based execution fallback when running fully offline without external API keys.
+- 🌐 **Multi-Provider LLM Intelligence**: Pluggable agent reasoning powered by **OpenRouter, Google Gemini, Anthropic Claude, OpenAI, Groq, or Ollama (Local)** with dynamic searchable model discovery.
+- ⚡ **Dual Execution Engines (AI vs Local)**:
+  - **✨ AI-Powered Agentic Mode**: Uses LLM cognition to reason over edge cases, formulate strategic analytical plans, and write custom diagnostic interpretations.
+  - **💻 Local (Deterministic) Mode**: Fully offline, rule-based, deterministic pipeline executing instantly without external API keys.
 - 🛡️ **Zero Data-Leakage Guarantee**: Enforces rigorous train/val/test boundary guards before scaling and encoding transformations.
-- 🏆 **Comprehensive Model Leaderboard**: Evaluates 10+ candidate algorithms (RandomForest, ExtraTrees, GradientBoosting, XGBoost, CatBoost, LightGBM, Linear/Logistic models) with multi-metric ranking.
+- 🏆 **Comprehensive Model Leaderboard**: Evaluates 10+ candidate algorithms (RandomForest, ExtraTrees, GradientBoosting, XGBoost, CatBoost, LightGBM, Linear/Logistic models) with multi-metric ranking and download capabilities.
+- 🔍 **Interactive Dataset Exploration**: Instant dataset previews with collapsible accordion viewers and authentic raw feature casing preservation.
 - 📦 **1-Click Full Project Export**: Exports a self-contained `.ZIP` bundle containing cleaned CSVs, serialized model weights (`.pkl`), an interactive validated Jupyter Notebook (`.ipynb`), high-res EDA charts (`.png`), and executive markdown reports (`.md`).
 - 📁 **High-Capacity Dataset Uploads**: Supports CSV, XLSX, and Parquet uploads with support for up to 500 MB datasets.
 
@@ -56,7 +62,7 @@ flowchart TB
     subgraph Supervisor ["🧠 Master Supervisor Layer"]
         direction TB
         Orchestrator["⚡ AADS Master Orchestrator<br/><i>(Lifecycle Coordination & Event Routing)</i>"]
-        LLM["🤖 Multi-LLM Reasoning Engine<br/><i>(Claude 3.5 / GPT-4o / Gemini 2.0 / Groq / Ollama)</i>"]
+        LLM["🤖 Multi-LLM Reasoning Engine<br/><i>(Claude 3.7 / GPT-4.5 / Gemini 2.0 / DeepSeek / Groq / Ollama)</i>"]
         RunState["🗄️ Immutable Run State & Audit Trail<br/><i>(Decisions, Lineage & Metrics)</i>"]
     end
 
@@ -145,7 +151,7 @@ flowchart TB
 
 ### 🧠 Agentic AI & LLM Orchestration
 - **LangChain / LangChain Core**: Standardized prompt formatting, messaging, and multi-provider agent interfaces.
-- **Multi-LLM Provider Engine**: Zero-dependency direct integration with **OpenRouter, Anthropic Claude 3.5, OpenAI GPT-4o, Google Gemini 2.0, Groq, and Ollama**.
+- **Multi-LLM Provider Engine**: Zero-dependency direct integration with **OpenRouter, Anthropic Claude 3.7 / 3.5, OpenAI GPT-4.5 / GPT-4o, Google Gemini 2.0, DeepSeek, Groq, and Ollama**.
 - **Pydantic & Pydantic-Settings v2**: Robust type validation, state schemas, and environment configuration.
 
 ### 📊 Machine Learning & Data Engines
@@ -155,13 +161,21 @@ flowchart TB
 - **DuckDB**: Fast in-process analytical SQL queries.
 
 ### 🎨 Frontend UI & Visualization
-- **Streamlit**: Interactive web dashboard with real-time pipeline status and artifact downloads.
+- **React 18 + Vite**: High-performance single-page app with floating navbar, real-time pipeline visualizer, and artifact manager.
+- **Deep Black & Radiant Royal Purple Design System**: Modern dark-mode aesthetic with ambient purple glows, frosted double-bezel cards, and responsive micro-interactions.
+- **FastAPI (Async Backend)**: High-speed ASGI REST API and Server-Sent Events (SSE) log streaming.
+- **Streamlit**: Classic interactive web dashboard.
 - **Plotly & Matplotlib**: Interactive and high-res static diagnostic visualizations.
-- **Rich & Structlog**: Structured real-time terminal and pipeline logging.
 
-### 📓 Reproducibility & Exporting
-- **nbformat & nbclient**: Programmatic generation and verification of executable Jupyter Notebooks.
-- **Pickle**: Multi-model serialization and artifact packaging.
+---
+
+## 🎨 Modern UI & Experience
+
+AADS offers a **React 18 + Vite** web interface powered by a **FastAPI backend**:
+- **Radiant Purple Aesthetic**: Built with deep obsidian surfaces (`#05020c`), radiant purple lighting, and frosted glass components.
+- **Real-Time Pipeline Stepper**: Live tracking of all 8 pipeline phases with elapsed timers, progress percentages, and streaming audit logs.
+- **Frontier Model Combobox**: Search, type, or pick top frontier models with instant keyboard navigation.
+- **Dedicated Artifact Explorer**: In-browser tabs for inspecting EDA visuals, model leaderboards, data quality scores, and full project downloads.
 
 ---
 
@@ -199,26 +213,44 @@ Generated_Project_<RUN_ID>/
 
 ## ⚙️ Local Installation & Quickstart
 
+### Prerequisites
+- Python 3.10 or higher
+- Node.js 18+ and npm (for React UI)
+
+### 1. Clone & Setup Python Environment
 ```bash
-# 1. Clone the repository
 git clone https://github.com/PiyushAnand2006/Autonomous_Data_Science_AI_Agent.git
 cd Autonomous_Data_Science_AI_Agent
 
-# 2. Create and activate a virtual environment
+# Create and activate virtual environment
 python -m venv .venv
+
 # On Windows:
 .venv\Scripts\activate
 # On macOS/Linux:
 # source .venv/bin/activate
 
-# 3. Install dependencies
+# Install dependencies
 pip install -r requirements.txt
-
-# 4. Launch the Streamlit Web Application
-streamlit run aads/app/streamlit_app.py
 ```
 
-The application will be accessible locally at `http://localhost:8501`.
+### 2. Option A: Run Full-Stack React + FastAPI App (Recommended)
+```bash
+# Terminal 1 — Start the FastAPI Backend (Port 8000)
+python -m uvicorn aads.api.server:app --port 8000
+
+# Terminal 2 — Start the Vite React Frontend (Port 5173)
+cd frontend
+npm install
+npm run dev
+```
+Open **[http://localhost:5173](http://localhost:5173)** in your browser.
+
+### 3. Option B: Run Streamlit App
+```bash
+streamlit run aads/app/streamlit_app.py
+```
+Open **[http://localhost:8501](http://localhost:8501)** in your browser.
 
 ---
 

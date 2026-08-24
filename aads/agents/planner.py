@@ -113,10 +113,26 @@ class GoalPlannerAgent:
             task_type = TaskType.CLASSIFICATION
 
         # 2. Determine target column if applicable
-        target = target_column
+        all_cols = [c.name for c in profile.columns] if profile.columns else []
+        target = None
+        
+        # If target specified, verify it exists in dataset columns (case-insensitive fallback)
+        if target_column:
+            if target_column in all_cols:
+                target = target_column
+            else:
+                # Case-insensitive match
+                for col_name in all_cols:
+                    if col_name.lower() == target_column.lower():
+                        target = col_name
+                        break
+
+        # Fallback to profile candidates or last column if not found or not specified
         if not target and task_type in (TaskType.REGRESSION, TaskType.CLASSIFICATION):
             if profile.target_candidates:
                 target = profile.target_candidates[0]
+            elif all_cols:
+                target = all_cols[-1]
 
         # 3. Determine steps based on task type
         if task_type == TaskType.DESCRIPTIVE:
@@ -234,9 +250,23 @@ class GoalPlannerAgent:
                         except ValueError:
                             task_type = TaskType.CLASSIFICATION
 
+                        raw_target = parsed_json.get("target_column") or state.target_column
+                        all_cols = [c.name for c in profile.columns] if profile.columns else []
+                        resolved_target = None
+                        if raw_target:
+                            if raw_target in all_cols:
+                                resolved_target = raw_target
+                            else:
+                                for col_name in all_cols:
+                                    if col_name.lower() == str(raw_target).lower():
+                                        resolved_target = col_name
+                                        break
+                        if not resolved_target and all_cols:
+                            resolved_target = profile.target_candidates[0] if profile.target_candidates else all_cols[-1]
+
                         plan_obj = TaskPlan(
                             task_type=task_type,
-                            target_column=parsed_json.get("target_column") or state.target_column,
+                            target_column=resolved_target,
                             metric=parsed_json.get("metric"),
                             steps=validated_steps,
                             reasoning=str(parsed_json.get("reasoning", "")),
@@ -246,6 +276,18 @@ class GoalPlannerAgent:
             except Exception as e:
                 logger.warning("planner_llm_execution_failed", error=str(e))
                 plan_obj = self.plan_heuristically(profile, user_objective, state.target_column)
+
+        # Ensure target column actually exists in profile columns
+        all_cols = [c.name for c in profile.columns] if profile.columns else []
+        if plan_obj.target_column and plan_obj.target_column not in all_cols:
+            found = False
+            for col_name in all_cols:
+                if col_name.lower() == str(plan_obj.target_column).lower():
+                    plan_obj.target_column = col_name
+                    found = True
+                    break
+            if not found and all_cols:
+                plan_obj.target_column = profile.target_candidates[0] if profile.target_candidates else all_cols[-1]
 
         # Update state with plan
         state.task_type = plan_obj.task_type

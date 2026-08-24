@@ -1,0 +1,94 @@
+/* ──────────────────────────────────────────────────────────────────────────────
+   AADS — Design Token System (Deep Black & Radiant Royal Purple)
+   ────────────────────────────────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* ── Deep Black & Purple Canvas & Surfaces ── */
+  --canvas:       #06020e;
+  --surface-1:    rgba(19, 8, 38, 0.75);
+  --surface-2:    rgba(27, 12, 54, 0.85);
+  --surface-3:    rgba(38, 17, 74, 0.9);
+  --surface-4:    rgba(53, 24, 102, 0.95);
+
+  /* ── Purple-Tinted Glass Borders ── */
+  --border-subtle:  rgba(168, 85, 247, 0.18);
+  --border-medium:  rgba(168, 85, 247, 0.32);
+  --border-strong:  rgba(192, 132, 252, 0.55);
+
+  /* ── Text ── */
+  --text-primary:   #faf5ff;
+  --text-secondary: #d8b4fe;
+  --text-muted:     #a855f7;
+  --text-ghost:     #7e22ce;
+
+  /* ── Accents & Neon Purples ── */
+  --accent-purple:         #9333ea;
+  --accent-purple-glow:    rgba(168, 85, 247, 0.35);
+  --accent-purple-muted:   rgba(168, 85, 247, 0.18);
+  
+  --accent-sapphire:       #7c3aed;
+  --accent-sapphire-glow:  rgba(124, 58, 237, 0.3);
+  --accent-sapphire-muted: rgba(124, 58, 237, 0.15);
+  
+  --accent-emerald:        #10b981;
+  --accent-emerald-glow:   rgba(16, 185, 129, 0.25);
+  --accent-amber:          #f59e0b;
+  --accent-amber-glow:     rgba(245, 158, 11, 0.2);
+  --accent-rose:           #f43f5e;
+  --accent-rose-glow:      rgba(244, 63, 94, 0.2);
+
+  /* ── Typography ── */
+  --font-display: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono:    'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+
+  --text-xs:   0.72rem;
+  --text-sm:   0.82rem;
+  --text-base: 0.92rem;
+  --text-md:   1.0rem;
+  --text-lg:   1.15rem;
+  --text-xl:   1.35rem;
+  --text-2xl:  1.75rem;
+  --text-3xl:  2.4rem;
+  --text-4xl:  3.2rem;
+
+  /* ── Spacing ── */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  20px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+
+  /* ── Radii ── */
+  --radius-sm:    8px;
+  --radius-md:    12px;
+  --radius-lg:    16px;
+  --radius-xl:    20px;
+  --radius-2xl:   24px;
+  --radius-inner: calc(var(--radius-xl) - 6px);
+  --radius-full:  9999px;
+
+  /* ── Motion ── */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring:   cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-bounce:   cubic-bezier(0.34, 1.56, 0.64, 1);
+  --duration-fast:   150ms;
+  --duration-normal: 280ms;
+  --duration-slow:   500ms;
+  --duration-reveal: 800ms;
+
+  /* ── Shadows ── */
+  --shadow-card:  0 4px 16px rgba(0, 0, 0, 0.5), 0 8px 36px rgba(109, 40, 217, 0.2);
+  --shadow-float: 0 16px 56px rgba(0, 0, 0, 0.7), 0 0 32px rgba(168, 85, 247, 0.3);
+  --shadow-glow-sapphire: 0 0 40px rgba(147, 51, 234, 0.35);
+  --shadow-glow-emerald:  0 0 40px rgba(16, 185, 129, 0.25);
+  --shadow-inset: inset 0 1px 1px rgba(216, 180, 254, 0.15);
+}

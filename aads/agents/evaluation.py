@@ -59,11 +59,12 @@ class EvaluationAgent:
         task_type = state.task_type or TaskType.CLASSIFICATION
         logger.info("evaluation_agent_start", run_id=state.run_id, model=model_name)
 
-        y_pred = model.predict(X_test)
+        y_pred = np.asarray(model.predict(X_test)).ravel()
+        y_test_arr = np.asarray(y_test.values if hasattr(y_test, "values") else y_test).ravel()
         report: dict[str, Any] = {
             "model_name": model_name,
             "task_type": task_type.value,
-            "test_samples": len(y_test),
+            "test_samples": len(y_test_arr),
             "metrics": {},
             "diagnostics": {},
             "generated_charts": [],
@@ -76,11 +77,11 @@ class EvaluationAgent:
 
         # 1. Regression Diagnostics
         if task_type == TaskType.REGRESSION:
-            residuals = y_test.values - y_pred
+            residuals = y_test_arr - y_pred
             mae = float(np.mean(np.abs(residuals)))
             rmse = float(np.sqrt(np.mean(residuals**2)))
             ss_res = np.sum(residuals**2)
-            ss_tot = np.sum((y_test.values - np.mean(y_test.values)) ** 2)
+            ss_tot = np.sum((y_test_arr - np.mean(y_test_arr)) ** 2)
             r2 = float(1.0 - (ss_res / (ss_tot + 1e-9)))
 
             report["metrics"] = {"rmse": round(rmse, 4), "mae": round(mae, 4), "r2": round(r2, 4)}
@@ -116,26 +117,44 @@ class EvaluationAgent:
 
         # 2. Classification Diagnostics
         else:
-            acc = float(np.mean(y_pred == y_test.values))
+            # Reconcile label types if y_test is string and y_pred is integer indices (e.g. from XGBoost/CatBoost)
+            y_eval_pred = y_pred
+            if (pd.api.types.is_object_dtype(y_test) or pd.api.types.is_string_dtype(y_test)) and np.issubdtype(np.array(y_pred).dtype, np.number):
+                sorted_classes = np.sort(np.unique(y_test))
+                if hasattr(model, "classes_") and (pd.api.types.is_object_dtype(model.classes_) or pd.api.types.is_string_dtype(model.classes_)):
+                    class_map = {i: c for i, c in enumerate(model.classes_)}
+                else:
+                    class_map = {i: c for i, c in enumerate(sorted_classes)}
+                y_eval_pred = np.array([class_map.get(int(p), str(p)) for p in y_pred])
+
+            acc = float(np.mean(y_eval_pred.ravel() == y_test_arr))
             report["metrics"] = {"accuracy": round(acc, 4)}
 
             # Generate Confusion Matrix
             labels = np.unique(y_test)
-            cm = confusion_matrix(y_test, y_pred, labels=labels)
+            try:
+                cm = confusion_matrix(y_test, y_eval_pred, labels=labels)
+            except Exception:
+                # Fallback without explicit labels
+                cm = confusion_matrix(y_test.astype(str), np.array(y_eval_pred).astype(str))
+                labels = np.unique(y_test.astype(str))
+
             report["diagnostics"]["confusion_matrix"] = cm.tolist()
 
             if eval_dir:
-                fig, ax = plt.subplots(figsize=(5, 4))
+                plot_size = max(5, min(14, len(labels) * 0.5))
+                fig, ax = plt.subplots(figsize=(plot_size, plot_size * 0.85))
                 cax = ax.matshow(cm, cmap="Blues", alpha=0.8)
                 fig.colorbar(cax)
                 ax.set_xticks(range(len(labels)))
                 ax.set_yticks(range(len(labels)))
-                ax.set_xticklabels([str(l) for l in labels])
-                ax.set_yticklabels([str(l) for l in labels])
+                ax.set_xticklabels([str(l) for l in labels], rotation=45, ha="left", fontsize=max(7, min(10, 120 // max(len(labels), 1))))
+                ax.set_yticklabels([str(l) for l in labels], fontsize=max(7, min(10, 120 // max(len(labels), 1))))
 
-                for i in range(len(labels)):
-                    for j in range(len(labels)):
-                        ax.text(j, i, str(cm[i, j]), ha="center", va="center", color="black", fontsize=11)
+                if len(labels) <= 15:
+                    for i in range(len(labels)):
+                        for j in range(len(labels)):
+                            ax.text(j, i, str(cm[i, j]), ha="center", va="center", color="black", fontsize=max(8, 12 - len(labels) // 2))
 
                 ax.set_title("Confusion Matrix", fontsize=12, fontweight="bold", pad=15)
                 ax.set_xlabel("Predicted Label")
