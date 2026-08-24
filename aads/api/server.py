@@ -1,5 +1,5 @@
 """
-AADS REST API — FastAPI backend wrapping the existing AADSOrchestrator.
+AUDAS REST API — FastAPI backend wrapping the existing AADSOrchestrator.
 
 Run via:
     uvicorn aads.api.server:app --reload --port 8000
@@ -46,15 +46,16 @@ from aads.scripts.generate_sample_data import generate_churn_dataset
 # App & CORS
 # ──────────────────────────────────────────────────────────────────────────────
 app = FastAPI(
-    title="AADS API",
-    description="Autonomous AI Data Scientist — REST backend",
+    title="AUDAS API",
+    description="Autonomous AI Data Scientist (AUDAS) — REST backend",
     version="1.0.0",
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000", "*"],
-    allow_credentials=True,
+    allow_origin_regex=r"^https?://.*",
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -82,17 +83,21 @@ class PipelineRequest(BaseModel):
     llm_provider: str = "openrouter"
     llm_model: str = "anthropic/claude-3.5-sonnet"
     llm_api_key: Optional[str] = None
+    custom_base_url: Optional[str] = None
+    custom_provider_name: Optional[str] = None
 
 
 class TestConnectionRequest(BaseModel):
     provider: str
     model: str
     api_key: str
+    base_url: Optional[str] = None
 
 
 class FetchModelsRequest(BaseModel):
     provider: str
     api_key: str
+    base_url: Optional[str] = None
 
 
 class SettingsUpdate(BaseModel):
@@ -116,17 +121,21 @@ def health():
 # Endpoints: File Upload
 # ──────────────────────────────────────────────────────────────────────────────
 @app.post("/api/upload")
-async def upload_file(file: UploadFile = File(...)):
+def upload_file(file: UploadFile = File(...)):
     temp_dir = _PROJECT_ROOT / "storage" / "temp_uploads"
     temp_dir.mkdir(parents=True, exist_ok=True)
-    dest = temp_dir / file.filename
-    content = await file.read()
-    with open(dest, "wb") as f:
-        f.write(content)
+    clean_filename = Path(file.filename).name
+    dest = temp_dir / clean_filename
+    
+    import shutil
+    with open(dest, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    size_bytes = dest.stat().st_size
     return {
-        "filename": file.filename,
-        "path": str(dest),
-        "size_bytes": len(content),
+        "filename": clean_filename,
+        "path": str(dest.resolve()),
+        "size_bytes": size_bytes,
     }
 
 
@@ -179,6 +188,10 @@ def _run_pipeline_thread(run_id: str, req: PipelineRequest):
             cfg_kwargs["llm_model"] = req.llm_model
             if req.llm_api_key and req.llm_api_key.strip():
                 cfg_kwargs["llm_api_key"] = req.llm_api_key.strip()
+            if req.custom_base_url and req.custom_base_url.strip():
+                cfg_kwargs["custom_base_url"] = req.custom_base_url.strip()
+            if req.custom_provider_name and req.custom_provider_name.strip():
+                cfg_kwargs["custom_provider_name"] = req.custom_provider_name.strip()
 
         config = AADSConfig(**cfg_kwargs)
         orchestrator = AADSOrchestrator(config=config, storage_root=config.storage_root)
@@ -369,7 +382,7 @@ def _serialize_result(result: Dict[str, Any]) -> Dict[str, Any]:
                     for idx, c in enumerate(raw_cands):
                         m_name = c.get("model") or c.get("model_name") or "Model"
                         all_candidates.append({
-                            "rank": idx + 1,
+                            "rank": c.get("rank", idx + 1),
                             "model": m_name,
                             "training_time": c.get("training_time_seconds") or c.get("training_time", 0.0),
                             "accuracy": c.get("accuracy"),
@@ -402,6 +415,21 @@ def _serialize_result(result: Dict[str, Any]) -> Dict[str, Any]:
                         })
             except Exception:
                 pass
+
+    # Sort all candidates by primary performance metrics
+    def _cand_sort_key(c):
+        # Prefer F1 descending
+        f1_val = c.get("f1") if c.get("f1") is not None else -999.0
+        acc_val = c.get("accuracy") if c.get("accuracy") is not None else -999.0
+        roc_val = c.get("roc_auc") if c.get("roc_auc") is not None else -999.0
+        rmse_val = c.get("rmse") if c.get("rmse") is not None else 999999.0
+        r2_val = c.get("r2") if c.get("r2") is not None else -999.0
+        return (-f1_val, -acc_val, -roc_val, rmse_val, -r2_val)
+
+    if all_candidates:
+        all_candidates.sort(key=_cand_sort_key)
+        for i, c in enumerate(all_candidates):
+            c["rank"] = i + 1
 
     serialized["all_candidates"] = all_candidates
 
@@ -440,14 +468,16 @@ async def pipeline_stream(run_id: str):
     msg_queue: queue.Queue = run_data["queue"]
 
     async def event_generator():
+        idle_ticks = 0
         while True:
             try:
                 msg = msg_queue.get_nowait()
                 yield f"data: {json.dumps(msg)}\n\n"
+                idle_ticks = 0
                 if msg.get("type") in ("complete", "error"):
                     return
             except queue.Empty:
-                # Check if run already finished (in case we missed the final message)
+                # Check if run already finished
                 if run_data["status"] in ("completed", "error") and msg_queue.empty():
                     final = {
                         "type": run_data["status"],
@@ -455,7 +485,11 @@ async def pipeline_stream(run_id: str):
                     }
                     yield f"data: {json.dumps(final)}\n\n"
                     return
-                await asyncio.sleep(0.3)
+                await asyncio.sleep(0.4)
+                idle_ticks += 1
+                if idle_ticks >= 5: # Every 2 seconds of idle, send keep-alive comment
+                    yield ": ping\n\n"
+                    idle_ticks = 0
 
     return StreamingResponse(
         event_generator(),
@@ -675,7 +709,7 @@ def list_pipeline_files(run_id: str):
 
 
 @app.get("/api/pipeline/{run_id}/files/{file_path:path}")
-def download_pipeline_file(run_id: str, file_path: str):
+def download_pipeline_file(run_id: str, file_path: str, download: bool = False):
     run_dir = _find_run_dir(run_id)
     if not run_dir or not run_dir.exists():
         raise HTTPException(status_code=404, detail=f"Run directory for {run_id} not found")
@@ -689,7 +723,24 @@ def download_pipeline_file(run_id: str, file_path: str):
         else:
             raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
 
-    return FileResponse(full_path, filename=full_path.name)
+    suffix = full_path.suffix.lower()
+    media_types = {
+        ".png": "image/png",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".svg": "image/svg+xml",
+        ".webp": "image/webp",
+        ".json": "application/json",
+        ".csv": "text/csv",
+        ".md": "text/markdown",
+        ".ipynb": "application/json",
+        ".pkl": "application/octet-stream",
+    }
+    media_type = media_types.get(suffix, "application/octet-stream")
+
+    if download:
+        return FileResponse(full_path, media_type=media_type, filename=full_path.name)
+    return FileResponse(full_path, media_type=media_type)
 
 
 @app.get("/api/pipeline/{run_id}/zip")
@@ -843,7 +894,7 @@ def set_api_key(body: ApiKeyUpdate):
 
 @app.post("/api/test-connection")
 def test_connection(body: TestConnectionRequest):
-    ok, msg = test_llm_connection(body.provider, body.model, body.api_key)
+    ok, msg = test_llm_connection(body.provider, body.model, body.api_key, base_url=body.base_url)
     return {"success": ok, "message": msg}
 
 
@@ -860,8 +911,22 @@ def fetch_models(body: FetchModelsRequest):
 def preview_dataset(path: str, rows: int = 6):
     import pandas as pd
 
-    file_path = Path(path)
-    if not file_path.exists():
+    candidate_paths = [
+        Path(path),
+        Path(path).resolve(),
+        _PROJECT_ROOT / path,
+        _PROJECT_ROOT / "storage" / "temp_uploads" / Path(path).name,
+        _PROJECT_ROOT / "data" / Path(path).name,
+        Path("storage/temp_uploads") / Path(path).name,
+        Path("data") / Path(path).name,
+    ]
+    file_path = None
+    for p in candidate_paths:
+        if p.exists() and p.is_file():
+            file_path = p.resolve()
+            break
+
+    if not file_path:
         raise HTTPException(status_code=404, detail=f"File not found: {path}")
 
     try:

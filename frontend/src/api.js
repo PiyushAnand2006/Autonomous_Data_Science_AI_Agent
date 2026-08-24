@@ -1,24 +1,54 @@
 /**
- * AADS Frontend API Client
+ * AUDAS Frontend API Client
  * Interfaces with the FastAPI backend at http://localhost:8000
  */
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+export const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
 
 export async function checkHealth() {
   const res = await fetch(`${API_BASE}/api/health`);
   return res.json();
 }
 
-export async function uploadDataset(file) {
-  const formData = new FormData();
-  formData.append('file', file);
-  const res = await fetch(`${API_BASE}/api/upload`, {
-    method: 'POST',
-    body: formData,
+export function uploadDataset(file, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const formData = new FormData();
+    formData.append('file', file);
+
+    if (onProgress && xhr.upload) {
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 100);
+          onProgress({ percent: pct, loaded: e.loaded, total: e.total });
+        }
+      };
+    }
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          resolve(data);
+        } catch (err) {
+          reject(new Error('Failed to parse upload response'));
+        }
+      } else {
+        let msg = 'File upload failed';
+        try {
+          const errData = JSON.parse(xhr.responseText);
+          if (errData.detail) msg = errData.detail;
+        } catch (_) {}
+        reject(new Error(msg));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error('Network error during file upload'));
+    xhr.ontimeout = () => reject(new Error('File upload timed out'));
+
+    xhr.open('POST', `${API_BASE}/api/upload`);
+    xhr.send(formData);
   });
-  if (!res.ok) throw new Error('File upload failed');
-  return res.json();
 }
 
 export async function createSampleDataset() {
@@ -63,10 +93,34 @@ export function subscribeToPipelineStream(runId, onMessage, onError, onComplete)
     }
   };
 
-  eventSource.onerror = (err) => {
-    console.error('SSE Error:', err);
+  eventSource.onerror = async (err) => {
+    console.warn('SSE stream notice:', err);
     eventSource.close();
-    if (onError) onError('Stream connection error');
+    
+    // Check if backend already finished or has an error before showing fatal error
+    try {
+      const res = await getPipelineResult(runId);
+      if (res && res.status === 'completed' && res.result) {
+        if (onComplete) onComplete('Pipeline completed successfully!');
+        return;
+      }
+      if (res && res.status === 'error') {
+        if (onError) onError(res.error || 'Pipeline execution failed');
+        return;
+      }
+    } catch (_) {}
+
+    // Polling retry fallback: check result after 2 seconds
+    setTimeout(async () => {
+      try {
+        const retryRes = await getPipelineResult(runId);
+        if (retryRes && retryRes.status === 'completed' && retryRes.result) {
+          if (onComplete) onComplete('Pipeline completed successfully!');
+          return;
+        }
+      } catch (_) {}
+      if (onError) onError('Pipeline connection closed. Please check status.');
+    }, 2000);
   };
 
   return () => eventSource.close();
@@ -98,6 +152,10 @@ export function getZipDownloadUrl(runId) {
   return `${API_BASE}/api/pipeline/${runId}/zip`;
 }
 
+export function getModelDownloadUrl(runId, rank) {
+  return `${API_BASE}/api/pipeline/${runId}/models/${rank}/download`;
+}
+
 export async function listVisualizations(runId) {
   const res = await fetch(`${API_BASE}/api/pipeline/${runId}/visualizations`);
   if (!res.ok) throw new Error('Failed to fetch visualizations');
@@ -120,21 +178,21 @@ export async function saveSettings(settings) {
   return res.json();
 }
 
-export async function testConnection(provider, model, apiKey) {
+export async function testConnection(provider, model, apiKey, baseUrl = null) {
   const res = await fetch(`${API_BASE}/api/test-connection`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ provider, model, api_key: apiKey }),
+    body: JSON.stringify({ provider, model, api_key: apiKey, base_url: baseUrl }),
   });
   if (!res.ok) throw new Error('Connection test failed');
   return res.json();
 }
 
-export async function fetchProviderModels(provider, apiKey) {
+export async function fetchProviderModels(provider, apiKey, baseUrl = null) {
   const res = await fetch(`${API_BASE}/api/fetch-models`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ provider, api_key: apiKey }),
+    body: JSON.stringify({ provider, api_key: apiKey, base_url: baseUrl }),
   });
   if (!res.ok) throw new Error('Failed to fetch models');
   return res.json();

@@ -96,6 +96,8 @@ export function Dashboard({ settings, setSettings, onOpenSettings, currentResult
       llm_provider: settings.selected_provider || 'openrouter',
       llm_model: settings.selected_model || '',
       llm_api_key: settings.api_keys?.[settings.selected_provider] || '',
+      custom_base_url: settings.custom_base_url || '',
+      custom_provider_name: settings.custom_provider_name || '',
     };
 
     try {
@@ -105,7 +107,18 @@ export function Dashboard({ settings, setSettings, onOpenSettings, currentResult
       subscribeToPipelineStream(
         res.run_id,
         (msg) => {
-          setLogs((prev) => [...prev, msg]);
+          setLogs((prev) => {
+            const isCandidateProgress = msg.includes('[Model ') || msg.includes('Training candidate machine learning models');
+            if (isCandidateProgress) {
+              const existingIdx = prev.findIndex((l) => l.includes('[Model ') || l.includes('Training candidate machine learning models'));
+              if (existingIdx !== -1) {
+                const nextLogs = [...prev];
+                nextLogs[existingIdx] = msg;
+                return nextLogs;
+              }
+            }
+            return [...prev, msg];
+          });
         },
         (err) => {
           setError(err);

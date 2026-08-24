@@ -16,7 +16,7 @@ export function Leaderboard({ result }) {
   }
 
   const topModels = result.top_models || [];
-  const allCandidates = result.all_candidates || (topModels.length > 0 ? topModels.map((m, i) => ({
+  const rawCandidates = result.all_candidates || (topModels.length > 0 ? topModels.map((m, i) => ({
     rank: m.rank || i + 1,
     model: m.model_name,
     training_time: m.training_time,
@@ -26,6 +26,38 @@ export function Leaderboard({ result }) {
     recall: m.metrics?.recall,
     roc_auc: m.metrics?.roc_auc,
   })) : []);
+
+  // Sort candidate models by performance metric (highest F1/Accuracy/ROC_AUC or lowest RMSE)
+  const allCandidates = [...rawCandidates].sort((a, b) => {
+    // 1. Classification F1 (higher is better)
+    if (a.f1 !== undefined && a.f1 !== null && b.f1 !== undefined && b.f1 !== null) {
+      if (Math.abs(b.f1 - a.f1) > 1e-6) return b.f1 - a.f1;
+    }
+    // 2. Classification Accuracy (higher is better)
+    if (a.accuracy !== undefined && a.accuracy !== null && b.accuracy !== undefined && b.accuracy !== null) {
+      if (Math.abs(b.accuracy - a.accuracy) > 1e-6) return b.accuracy - a.accuracy;
+    }
+    // 3. ROC-AUC (higher is better)
+    if (a.roc_auc !== undefined && a.roc_auc !== null && b.roc_auc !== undefined && b.roc_auc !== null) {
+      if (Math.abs(b.roc_auc - a.roc_auc) > 1e-6) return b.roc_auc - a.roc_auc;
+    }
+    // 4. Regression RMSE (lower is better)
+    if (a.rmse !== undefined && a.rmse !== null && b.rmse !== undefined && b.rmse !== null) {
+      if (Math.abs(a.rmse - b.rmse) > 1e-6) return a.rmse - b.rmse;
+    }
+    // 5. Regression R2 (higher is better)
+    if (a.r2 !== undefined && a.r2 !== null && b.r2 !== undefined && b.r2 !== null) {
+      if (Math.abs(b.r2 - a.r2) > 1e-6) return b.r2 - a.r2;
+    }
+    // 6. Clustering Silhouette (higher is better)
+    if (a.silhouette !== undefined && a.silhouette !== null && b.silhouette !== undefined && b.silhouette !== null) {
+      if (Math.abs(b.silhouette - a.silhouette) > 1e-6) return b.silhouette - a.silhouette;
+    }
+    return (a.rank || 0) - (b.rank || 0);
+  }).map((cand, idx) => ({
+    ...cand,
+    rank: idx + 1,
+  }));
 
   // Determine dynamic metric columns based on available keys
   const metricKeys = ['accuracy', 'f1', 'precision', 'recall', 'roc_auc', 'rmse', 'mae', 'r2', 'silhouette'].filter(

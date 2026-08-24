@@ -36,217 +36,41 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Custom CSS for modern, premium aesthetics (Deep Obsidian & Radiant Royal Purple matching React 18 UI)
+# Custom CSS for modern, premium aesthetics
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
-    /* Global Typography & Font */
-    html, body, [class*="css"], .stMarkdown, .stText, p, span, label, div {
-        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
-    }
-    code, pre {
-        font-family: 'JetBrains Mono', monospace !important;
-    }
-
-    /* Main Background & Ambient Radiant Glow */
-    .stApp {
-        background-color: #06020e !important;
-        background-image: 
-            radial-gradient(ellipse 120% 80% at 50% 115%, #3b0764 0%, #1c053a 45%, #0a0218 75%, #06020e 100%),
-            radial-gradient(circle 900px at 0% 100%, rgba(109, 40, 217, 0.45) 0%, transparent 65%),
-            radial-gradient(circle 900px at 100% 100%, rgba(126, 34, 206, 0.45) 0%, transparent 65%) !important;
-        background-attachment: fixed !important;
-        color: #faf5ff !important;
-    }
-
-    /* Floating Pill Navbar */
-    .custom-navbar {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 16px;
-        background: rgba(14, 5, 28, 0.85);
-        backdrop-filter: blur(28px) saturate(2.0);
-        -webkit-backdrop-filter: blur(28px) saturate(2.0);
-        border: 1px solid rgba(168, 85, 247, 0.32);
-        border-radius: 9999px;
-        padding: 8px 24px;
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6), 0 0 24px rgba(147, 51, 234, 0.25);
-        margin-bottom: 24px;
-    }
-    .custom-navbar-brand {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-weight: 800;
-        font-size: 1.05rem;
-        color: #faf5ff;
-        letter-spacing: -0.02em;
-    }
-    .custom-navbar-icon {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 28px;
-        height: 28px;
-        border-radius: 8px;
-        background: linear-gradient(135deg, #7c3aed, #c084fc);
-        font-size: 0.85rem;
-        box-shadow: 0 2px 10px rgba(168, 85, 247, 0.5);
-    }
-    .custom-navbar-badge {
-        font-size: 0.72rem;
-        font-weight: 700;
-        font-family: 'JetBrains Mono', monospace;
-        text-transform: uppercase;
-        letter-spacing: 0.12em;
-        background: rgba(147, 51, 234, 0.25);
-        border: 1px solid rgba(192, 132, 252, 0.4);
-        color: #e9d5ff;
-        padding: 4px 12px;
-        border-radius: 9999px;
-    }
-
-    /* Eyebrow Tag */
-    .eyebrow {
-        display: inline-block;
-        font-size: 0.72rem;
-        font-weight: 700;
-        font-family: 'JetBrains Mono', monospace;
-        text-transform: uppercase;
-        letter-spacing: 0.2em;
-        color: #c084fc;
-        background: rgba(38, 17, 74, 0.7);
-        border: 1px solid rgba(168, 85, 247, 0.3);
-        padding: 3px 12px;
-        border-radius: 9999px;
-        margin-bottom: 8px;
-    }
-
-    /* Header Typography */
     .main-header {
-        font-size: 2.5rem;
-        font-weight: 800;
-        color: #faf5ff;
-        margin-bottom: 0.3rem;
-        letter-spacing: -0.03em;
-        line-height: 1.2;
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: #1e3a8a;
+        margin-bottom: 0.2rem;
     }
     .sub-header {
-        font-size: 0.95rem;
-        color: #d8b4fe;
-        line-height: 1.6;
+        font-size: 1.05rem;
+        color: #475569;
         margin-bottom: 1.5rem;
     }
-
-    /* Execution Mode Toggle Card */
-    .mode-card-wrap {
-        background: rgba(26, 11, 52, 0.6);
-        border: 1px solid rgba(168, 85, 247, 0.35);
-        border-radius: 16px;
-        padding: 16px 20px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(147, 51, 234, 0.15);
+    .model-card {
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 16px;
+        margin-bottom: 12px;
     }
-    .mode-card-title {
-        font-size: 0.72rem;
-        font-weight: 700;
-        font-family: 'JetBrains Mono', monospace;
-        text-transform: uppercase;
-        letter-spacing: 0.15em;
-        color: #a855f7;
-        margin-bottom: 8px;
-    }
-
-    /* Double Bezel Card Shells */
-    .card-shell {
-        background: rgba(26, 11, 52, 0.45);
-        border: 1px solid rgba(168, 85, 247, 0.32);
-        border-radius: 20px;
-        padding: 5px;
-        backdrop-filter: blur(16px);
-        -webkit-backdrop-filter: blur(16px);
-        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 8px 36px rgba(109, 40, 217, 0.2);
-        margin-bottom: 16px;
-    }
-    .card-core {
-        background: rgba(27, 12, 54, 0.85);
-        border-radius: 15px;
-        padding: 22px 24px;
-        box-shadow: inset 0 1px 1px rgba(216, 180, 254, 0.15);
-    }
-    .card-header-title {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 1.15rem;
-        font-weight: 700;
-        color: #faf5ff;
-        margin-bottom: 16px;
-    }
-
-    /* Form Inputs & File Uploader */
-    div[data-testid="stFileUploader"] {
-        border: 2px dashed rgba(168, 85, 247, 0.4) !important;
-        border-radius: 14px !important;
-        background: rgba(19, 8, 38, 0.6) !important;
-        padding: 16px !important;
-        transition: all 0.2s ease !important;
-    }
-    div[data-testid="stFileUploader"]:hover {
-        border-color: #c084fc !important;
-        background: rgba(147, 51, 234, 0.15) !important;
-    }
-
-    .stTextInput input, .stTextArea textarea, .stSelectbox [data-baseweb="select"] {
-        background-color: rgba(30, 14, 60, 0.9) !important;
-        border: 1px solid rgba(168, 85, 247, 0.3) !important;
-        border-radius: 10px !important;
-        color: #faf5ff !important;
-        box-shadow: none !important;
-    }
-    .stTextInput input:focus, .stTextArea textarea:focus {
-        border-color: #c084fc !important;
-        box-shadow: 0 0 16px rgba(168, 85, 247, 0.35) !important;
-    }
-
-    /* Buttons */
-    div.stButton > button:first-child {
-        background: linear-gradient(135deg, #7c3aed 0%, #9333ea 50%, #a855f7 100%) !important;
-        color: #ffffff !important;
-        border: none !important;
-        border-radius: 12px !important;
-        padding: 14px 28px !important;
-        font-size: 1.05rem !important;
-        font-weight: 700 !important;
-        box-shadow: 0 4px 20px rgba(147, 51, 234, 0.45) !important;
-        transition: all 0.2s ease-in-out !important;
-    }
-    div.stButton > button:first-child:hover {
-        background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 50%, #c084fc 100%) !important;
-        box-shadow: 0 6px 30px rgba(168, 85, 247, 0.65) !important;
-        transform: translateY(-2px) !important;
-    }
-
-    /* Tabs */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        background-color: rgba(19, 8, 38, 0.7);
-        padding: 6px;
-        border-radius: 9999px;
-        border: 1px solid rgba(168, 85, 247, 0.25);
-        margin-bottom: 24px;
-    }
-    .stTabs [data-baseweb="tab"] {
-        border-radius: 9999px;
-        color: #d8b4fe !important;
+    .model-badge {
+        background-color: #2563eb;
+        color: white;
+        padding: 3px 8px;
+        border-radius: 6px;
+        font-size: 0.85rem;
         font-weight: 600;
-        padding: 8px 16px;
     }
-    .stTabs [aria-selected="true"] {
-        background-color: rgba(147, 51, 234, 0.35) !important;
-        color: #ffffff !important;
-        box-shadow: 0 0 16px rgba(168, 85, 247, 0.3) !important;
+    .status-badge-pass {
+        background-color: #10b981;
+        color: white;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-weight: 600;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -419,37 +243,9 @@ storage_dir = st.sidebar.text_input(
 # ──────────────────────────────────────────────────────────────────────────────
 # MAIN UI
 # ──────────────────────────────────────────────────────────────────────────────
-# 1. Custom Floating Pill Navbar
-st.markdown(f"""
-<div class="custom-navbar">
-    <div class="custom-navbar-brand">
-        <div class="custom-navbar-icon">🧠</div>
-        <span>AADS</span>
-    </div>
-    <div style="display: flex; align-items: center; gap: 10px;">
-        <span class="custom-navbar-badge">{'✨ AI-POWERED ENGINE' if is_ai_mode else '💻 LOCAL ENGINE'}</span>
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-# 2. Hero Header with Mode Badge Box on Right
-header_col1, header_col2 = st.columns([2.2, 1.1])
-
-with header_col1:
-    st.markdown('<span class="eyebrow">ENTERPRISE AUTONOMOUS DATA SCIENCE</span>', unsafe_allow_html=True)
-    st.markdown('<div class="main-header">Autonomous AI Data Scientist</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sub-header">Transform raw tabular datasets and natural-language objectives into full-lifecycle, production-ready, reproducible Machine Learning projects.</div>', unsafe_allow_html=True)
-
-with header_col2:
-    engine_label = "✨ AI-Powered (LLM Assisted)" if is_ai_mode else "💻 Local (Offline)"
-    engine_desc = "Cognitive planning & diagnosis across 100+ LLMs" if is_ai_mode else "Deterministic local ML training (No API key needed)"
-    st.markdown(f"""
-    <div class="mode-card-wrap">
-        <div class="mode-card-title">Execution Mode</div>
-        <div style="font-weight: 700; font-size: 0.95rem; color: #faf5ff; margin-bottom: 4px;">{engine_label}</div>
-        <div style="font-size: 0.78rem; color: #d8b4fe;">⚡ {engine_desc}</div>
-    </div>
-    """, unsafe_allow_html=True)
+st.markdown('<div class="main-header">Autonomous AI Data Scientist (AADS)</div>', unsafe_allow_html=True)
+mode_badge = "✨ AI-POWERED" if is_ai_mode else "💻 LOCAL MACHINE"
+st.markdown(f'<div class="sub-header">Transform raw datasets and natural-language goals into complete, multi-model reproducible projects. &nbsp; <b>[{mode_badge}]</b></div>', unsafe_allow_html=True)
 
 tabs = st.tabs([
     "🚀 Launch Pipeline",
@@ -466,12 +262,7 @@ with tabs[0]:
     col1, col2 = st.columns([1, 1])
 
     with col1:
-        st.markdown("""
-        <div class="card-header-title">
-            <span style="font-size: 1.25rem;">1️⃣</span>
-            <span>Data Ingestion</span>
-        </div>
-        """, unsafe_allow_html=True)
+        st.subheader("1. Data Source")
         data_source_mode = st.radio("Select Dataset Mode", ["Upload My Dataset", "Use Sample Dataset"], horizontal=True)
 
         data_path = None
@@ -503,12 +294,7 @@ with tabs[0]:
                 pass
 
     with col2:
-        st.markdown("""
-        <div class="card-header-title">
-            <span style="font-size: 1.25rem;">2️⃣</span>
-            <span>Task & Objective</span>
-        </div>
-        """, unsafe_allow_html=True)
+        st.subheader("2. Objective & Target")
         user_objective = st.text_area(
             "Natural Language Goal",
             value="Predict customer churn, discover key behavioral drivers, and export top performing ML models.",
@@ -516,7 +302,7 @@ with tabs[0]:
         )
         target_col = st.text_input("Target Column (Leave blank for auto-detection)", value="churn")
 
-        run_btn = st.button("🚀 Launch Autonomous Pipeline ↗", type="primary", use_container_width=True)
+        run_btn = st.button("🚀 Run Autonomous Pipeline", type="primary", use_container_width=True)
 
     if run_btn:
         if not data_path or not data_path.exists():

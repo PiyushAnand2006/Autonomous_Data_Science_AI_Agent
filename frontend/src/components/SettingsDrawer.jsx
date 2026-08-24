@@ -2,6 +2,56 @@ import React, { useState, useEffect } from 'react';
 import { getSettings, saveSettings, testConnection, fetchProviderModels } from '../api';
 import { SearchableSelect } from './SearchableSelect';
 
+const DEFAULT_PROVIDER_MODELS = {
+  openrouter: [
+    'google/gemini-2.0-flash-001',
+    'meta-llama/llama-3.3-70b-instruct',
+    'openai/gpt-4o-mini',
+    'anthropic/claude-3.5-sonnet',
+    'deepseek/deepseek-r1',
+  ],
+  nvidia: [
+    'meta/llama-3.3-70b-instruct',
+    'deepseek-ai/deepseek-r1',
+    'nvidia/llama-3.1-nemotron-70b-instruct',
+    'mistralai/mistral-large-2-instruct',
+    'meta/llama-3.1-8b-instruct',
+    'nvidia/nemotron-4-340b-instruct',
+  ],
+  google: [
+    'gemini-2.0-flash',
+    'gemini-1.5-pro',
+    'gemini-1.5-flash',
+  ],
+  openai: [
+    'gpt-4o-mini',
+    'gpt-4o',
+    'o3-mini',
+  ],
+  anthropic: [
+    'claude-3-5-sonnet-20241022',
+    'claude-3-5-haiku-20241022',
+  ],
+  ollama: [
+    'llama3.2',
+    'llama3.1',
+    'mistral',
+  ],
+  custom: [
+    'custom-model',
+  ],
+};
+
+const PROVIDER_OPTIONS = [
+  { id: 'openrouter', label: 'OpenRouter (Multi-Model)' },
+  { id: 'nvidia', label: 'NVIDIA NIM (High Performance)' },
+  { id: 'google', label: 'Google Gemini' },
+  { id: 'openai', label: 'OpenAI' },
+  { id: 'anthropic', label: 'Anthropic Claude' },
+  { id: 'ollama', label: 'Ollama (Local LLM)' },
+  { id: 'custom', label: 'Custom (OpenAI-Compatible Endpoint)' },
+];
+
 export function SettingsDrawer({ isOpen, onClose, onSettingsSaved }) {
   const [settings, setSettings] = useState({
     execution_mode: 'local',
@@ -9,6 +59,8 @@ export function SettingsDrawer({ isOpen, onClose, onSettingsSaved }) {
     api_keys: {},
     provider_models_cache: {},
     selected_model: '',
+    custom_base_url: '',
+    custom_provider_name: '',
     autonomy: 'fully_autonomous',
     engine: 'pandas',
     random_seed: 42,
@@ -33,8 +85,8 @@ export function SettingsDrawer({ isOpen, onClose, onSettingsSaved }) {
       const s = res.settings || {};
       const provider = s.selected_provider || 'openrouter';
       const modelsMap = s.provider_models_cache || {};
-      const defaultModels = res.default_models || {};
-      const models = modelsMap[provider] || defaultModels[provider] || ['default'];
+      const defaultModels = res.default_models || DEFAULT_PROVIDER_MODELS;
+      const models = modelsMap[provider] || defaultModels[provider] || DEFAULT_PROVIDER_MODELS[provider] || [];
 
       setSettings((prev) => ({ ...prev, ...s }));
       setAvailableModels(models);
@@ -45,7 +97,7 @@ export function SettingsDrawer({ isOpen, onClose, onSettingsSaved }) {
 
   const handleProviderChange = (provider) => {
     const modelsMap = settings.provider_models_cache || {};
-    const models = modelsMap[provider] || ['default'];
+    const models = modelsMap[provider] || DEFAULT_PROVIDER_MODELS[provider] || [];
     setSettings((prev) => ({
       ...prev,
       selected_provider: provider,
@@ -70,7 +122,8 @@ export function SettingsDrawer({ isOpen, onClose, onSettingsSaved }) {
     setTestResult(null);
     try {
       const apiKey = settings.api_keys?.[settings.selected_provider] || '';
-      const res = await fetchProviderModels(settings.selected_provider, apiKey);
+      const baseUrl = settings.selected_provider === 'custom' ? settings.custom_base_url : null;
+      const res = await fetchProviderModels(settings.selected_provider, apiKey, baseUrl);
       if (res.models && res.models.length > 0) {
         setAvailableModels(res.models);
         const updatedMap = { ...(settings.provider_models_cache || {}), [settings.selected_provider]: res.models };
@@ -94,7 +147,8 @@ export function SettingsDrawer({ isOpen, onClose, onSettingsSaved }) {
     try {
       const apiKey = settings.api_keys?.[settings.selected_provider] || '';
       const model = settings.selected_model || availableModels[0] || 'default';
-      const res = await testConnection(settings.selected_provider, model, apiKey);
+      const baseUrl = settings.selected_provider === 'custom' ? settings.custom_base_url : null;
+      const res = await testConnection(settings.selected_provider, model, apiKey, baseUrl);
       setTestResult(res);
     } catch (err) {
       setTestResult({ success: false, message: err.message || 'Connection test failed' });
@@ -158,18 +212,50 @@ export function SettingsDrawer({ isOpen, onClose, onSettingsSaved }) {
                 value={settings.selected_provider}
                 onChange={(e) => handleProviderChange(e.target.value)}
               >
-                {['openrouter', 'google', 'openai', 'anthropic', 'groq', 'ollama'].map((p) => (
-                  <option key={p} value={p}>{p.toUpperCase()}</option>
+                {PROVIDER_OPTIONS.map((p) => (
+                  <option key={p.id} value={p.id}>{p.label}</option>
                 ))}
               </select>
             </div>
 
+            {/* Custom Base URL (if custom provider selected) */}
+            {settings.selected_provider === 'custom' && (
+              <>
+                <div className="settings-field">
+                  <label className="settings-label">Custom API Base URL</label>
+                  <input
+                    type="text"
+                    className="settings-input"
+                    placeholder="e.g. https://api.together.xyz/v1, http://localhost:1234/v1"
+                    value={settings.custom_base_url || ''}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, custom_base_url: e.target.value }))}
+                  />
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                    Works with any OpenAI-compatible server (vLLM, LM Studio, Together AI, DeepSeek API, Mistral).
+                  </div>
+                </div>
+
+                <div className="settings-field">
+                  <label className="settings-label">Custom Provider Label (Optional)</label>
+                  <input
+                    type="text"
+                    className="settings-input"
+                    placeholder="e.g. Together AI / DeepSeek"
+                    value={settings.custom_provider_name || ''}
+                    onChange={(e) => setSettings((prev) => ({ ...prev, custom_provider_name: e.target.value }))}
+                  />
+                </div>
+              </>
+            )}
+
             <div className="settings-field">
-              <label className="settings-label">{settings.selected_provider.toUpperCase()} API Key</label>
+              <label className="settings-label">
+                {settings.selected_provider === 'custom' ? 'API Key (Optional for local servers)' : `${settings.selected_provider.toUpperCase()} API Key`}
+              </label>
               <input
                 type="password"
                 className="settings-input"
-                placeholder="sk-..."
+                placeholder={settings.selected_provider === 'nvidia' ? 'nvapi-...' : 'sk-...'}
                 value={currentApiKey}
                 onChange={(e) => handleApiKeyChange(e.target.value)}
               />

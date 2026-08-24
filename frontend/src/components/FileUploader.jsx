@@ -5,6 +5,7 @@ export function FileUploader({ onFileReady, currentFile }) {
   const [mode, setMode] = useState('upload'); // 'upload' | 'sample'
   const [selectedSample, setSelectedSample] = useState('churn');
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(null); // { percent, loaded, total }
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState(null);
 
@@ -12,11 +13,16 @@ export function FileUploader({ onFileReady, currentFile }) {
     if (!file) return;
     setLoading(true);
     setError(null);
+    setUploadProgress({ percent: 0, loaded: 0, total: file.size });
     try {
-      const res = await uploadDataset(file);
+      const res = await uploadDataset(file, (p) => {
+        setUploadProgress(p);
+      });
       onFileReady({ path: res.path, filename: res.filename, size: res.size_bytes });
+      setUploadProgress(null);
     } catch (err) {
       setError(err.message || 'Upload failed');
+      setUploadProgress(null);
     } finally {
       setLoading(false);
     }
@@ -106,16 +112,31 @@ export function FileUploader({ onFileReady, currentFile }) {
               {loading ? '⏳' : '📁'}
             </div>
             <div style={{ fontSize: 'var(--text-sm)', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '4px' }}>
-              {loading ? 'Uploading & validating...' : 'Upload CSV, Excel, or Parquet file'}
+              {loading
+                ? (uploadProgress ? `Uploading: ${uploadProgress.percent}% (${(uploadProgress.loaded / 1048576).toFixed(1)} MB / ${(uploadProgress.total / 1048576).toFixed(1)} MB)` : 'Uploading & validating...')
+                : 'Upload CSV, Excel, or Parquet file'}
             </div>
             <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
               500MB per file • CSV, XLSX, PARQUET
             </div>
+
+            {uploadProgress && (
+              <div style={{ width: '100%', maxWidth: '320px', height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', margin: '12px auto 0 auto', overflow: 'hidden' }}>
+                <div
+                  style={{
+                    width: `${uploadProgress.percent}%`,
+                    height: '100%',
+                    background: 'linear-gradient(90deg, #7c3aed, #a855f7)',
+                    transition: 'width 0.2s ease',
+                  }}
+                />
+              </div>
+            )}
           </div>
 
-          {currentFile && (
+          {currentFile && !loading && (
             <div style={{ marginTop: '12px', padding: '10px 14px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--text-xs)', color: '#6ee7b7', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>✓ Loaded: <strong>{currentFile.filename}</strong></span>
+              <span>✓ Ready on Backend: <strong>{currentFile.filename}</strong></span>
               <span style={{ fontFamily: 'var(--font-mono)' }}>
                 {currentFile.size ? `${(currentFile.size / 1024).toFixed(1)} KB` : ''}
               </span>

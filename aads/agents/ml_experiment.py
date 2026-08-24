@@ -53,9 +53,11 @@ class MLExperimentAgent:
         self,
         config: Optional[AADSConfig] = None,
         artifact_manager: Optional[ArtifactManager] = None,
+        llm: Any = None,
     ) -> None:
         self.config = config or AADSConfig()
         self.artifact_manager = artifact_manager
+        self.llm = llm
         self.top_models: list[dict[str, Any]] = []
 
     def run(
@@ -67,6 +69,7 @@ class MLExperimentAgent:
         state: RunState,
         candidate_models: Optional[list[str]] = None,
         top_k: Optional[int] = None,
+        progress_callback: Optional[Any] = None,
     ) -> tuple[Any, str, dict[str, float], list[ExperimentRecord]]:
         """Run ML training experiments across candidate models and select top models.
 
@@ -78,12 +81,64 @@ class MLExperimentAgent:
             state: The current RunState.
             candidate_models: Optional model names to train.
             top_k: Number of top models to export (defaults to config.top_models_count).
+            progress_callback: Optional callback for live progress streaming.
 
         Returns:
             Tuple of (best_model, best_model_name, best_metrics, all_experiments).
         """
         task_type = state.task_type or TaskType.CLASSIFICATION
-        models_to_run = candidate_models or get_candidate_models(task_type)
+        if y_train is not None:
+            try:
+                from sklearn.utils.multiclass import type_of_target
+                t_type = type_of_target(y_train)
+                if t_type in ("continuous", "continuous-multioutput"):
+                    task_type = TaskType.REGRESSION
+                    state.task_type = TaskType.REGRESSION
+                elif t_type in ("binary", "multiclass"):
+                    task_type = TaskType.CLASSIFICATION
+                    state.task_type = TaskType.CLASSIFICATION
+            except Exception:
+                if pd.api.types.is_float_dtype(y_train) or (pd.api.types.is_numeric_dtype(y_train) and getattr(y_train, "nunique", lambda: 0)() > 30):
+                    task_type = TaskType.REGRESSION
+                    state.task_type = TaskType.REGRESSION
+
+        base_models = candidate_models or get_candidate_models(task_type)
+        models_to_run = list(base_models)
+
+        # In AI Mode: inject AI-Tuned Model configurations to push validation accuracy higher
+        ai_model_params: dict[str, dict[str, Any]] = {}
+        if getattr(self.config, "execution_mode", "local") == "ai":
+            if task_type == TaskType.CLASSIFICATION:
+                if "LGBMClassifier" in models_to_run:
+                    name = "LGBMClassifier (AI-Tuned)"
+                    models_to_run.append(name)
+                    ai_model_params[name] = {"n_estimators": 140, "learning_rate": 0.04, "max_depth": 6, "subsample": 0.85}
+                if "XGBClassifier" in models_to_run:
+                    name = "XGBClassifier (AI-Tuned)"
+                    models_to_run.append(name)
+                    ai_model_params[name] = {"n_estimators": 140, "learning_rate": 0.04, "max_depth": 6, "subsample": 0.85}
+                if "CatBoostClassifier" in models_to_run:
+                    name = "CatBoostClassifier (AI-Tuned)"
+                    models_to_run.append(name)
+                    ai_model_params[name] = {"n_estimators": 150, "learning_rate": 0.04, "max_depth": 6}
+                if "RandomForestClassifier" in models_to_run:
+                    name = "RandomForestClassifier (AI-Tuned)"
+                    models_to_run.append(name)
+                    ai_model_params[name] = {"n_estimators": 120, "max_depth": 12, "min_samples_split": 4}
+            elif task_type == TaskType.REGRESSION:
+                if "LGBMRegressor" in models_to_run:
+                    name = "LGBMRegressor (AI-Tuned)"
+                    models_to_run.append(name)
+                    ai_model_params[name] = {"n_estimators": 140, "learning_rate": 0.04, "max_depth": 6, "subsample": 0.85}
+                if "XGBRegressor" in models_to_run:
+                    name = "XGBRegressor (AI-Tuned)"
+                    models_to_run.append(name)
+                    ai_model_params[name] = {"n_estimators": 140, "learning_rate": 0.04, "max_depth": 6, "subsample": 0.85}
+                if "RandomForestRegressor" in models_to_run:
+                    name = "RandomForestRegressor (AI-Tuned)"
+                    models_to_run.append(name)
+                    ai_model_params[name] = {"n_estimators": 120, "max_depth": 12, "min_samples_split": 4}
+
         primary_metric = "rmse" if task_type == TaskType.REGRESSION else "f1"
         num_top_models = top_k or getattr(self.config, "top_models_count", 4)
 
@@ -99,8 +154,9 @@ class MLExperimentAgent:
         raw_results: list[dict[str, Any]] = []
 
         for idx, model_name in enumerate(models_to_run):
-            exp_id = f"exp_{state.run_id}_{idx+1:02d}_{model_name}"
+            exp_id = f"exp_{state.run_id}_{idx+1:02d}_{_sanitize_model_name_for_filename(model_name)}"
             is_baseline = (idx == 0)
+            custom_p = ai_model_params.get(model_name, None)
 
             fitted_model, metrics, _, train_time = train_and_evaluate_model(
                 model_name=model_name,
@@ -110,6 +166,7 @@ class MLExperimentAgent:
                 y_val=y_eval,
                 task_type=task_type,
                 random_state=state.random_seed,
+                params=custom_p,
             )
 
             raw_results.append({
@@ -122,7 +179,7 @@ class MLExperimentAgent:
             exp_rec = ExperimentRecord(
                 experiment_id=exp_id,
                 model_name=model_name,
-                hyperparameters={},
+                hyperparameters=custom_p or {},
                 metrics=metrics,
                 is_baseline=is_baseline,
                 is_best=False,
@@ -130,6 +187,11 @@ class MLExperimentAgent:
             )
             all_experiments.append(exp_rec)
             state.add_experiment(exp_rec)
+
+            if progress_callback:
+                progress_callback(
+                    f"🤖 Training candidate machine learning models and evaluating leaderboard... [{idx+1}/{len(models_to_run)}] ({model_name})"
+                )
 
         # 1. Multi-metric ranking across all candidate models
         ranked_top = rank_models(raw_results, task_type=task_type, top_k=num_top_models)
@@ -193,14 +255,17 @@ class MLExperimentAgent:
                         description=f"Winning model ({best_model_name})",
                     )
 
-                # Save 06_Models/model_comparison.json
+                # Save 06_Models/model_comparison.json in sorted performance order
+                ranked_all = rank_models(raw_results, task_type=task_type, top_k=len(raw_results))
                 comparison_rows = [
                     {
+                        "rank": r.get("rank", idx + 1),
                         "model": r["model_name"],
                         "training_time_seconds": r.get("training_time", 0.0),
+                        "is_best": r.get("rank", idx + 1) == 1,
                         **r["metrics"],
                     }
-                    for r in raw_results
+                    for idx, r in enumerate(ranked_all)
                 ]
                 comp_path = models_dir / "model_comparison.json"
                 comp_path.write_text(json.dumps(comparison_rows, indent=2), encoding="utf-8")

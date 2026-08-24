@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '../components/Card';
-import { listVisualizations, getFileDownloadUrl } from '../api';
+import { listVisualizations, getFileDownloadUrl, API_BASE } from '../api';
 
 export function Visualizations({ result }) {
   const [images, setImages] = useState([]);
@@ -24,6 +24,14 @@ export function Visualizations({ result }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const getFullImgUrl = (img) => {
+    if (!img) return '';
+    if (img.url && img.url.startsWith('http')) return img.url;
+    if (img.path) return getFileDownloadUrl(result.run_id, img.path);
+    if (img.url) return `${API_BASE}${img.url}`;
+    return '';
   };
 
   if (!result) {
@@ -99,7 +107,7 @@ export function Visualizations({ result }) {
       ) : filteredImages.length > 0 ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))', gap: '20px' }}>
           {filteredImages.map((img, idx) => {
-            const imgUrl = `http://localhost:8000${img.url || `/api/pipeline/${result.run_id}/files/${img.path}`}`;
+            const imgUrl = getFullImgUrl(img);
             return (
               <Card
                 key={idx}
@@ -194,7 +202,7 @@ export function Visualizations({ result }) {
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <a
-                  href={`http://localhost:8000${selectedImg.url || `/api/pipeline/${result.run_id}/files/${selectedImg.path}`}`}
+                  href={getFullImgUrl(selectedImg)}
                   download={selectedImg.name}
                   className="btn btn-ghost"
                   style={{ fontSize: 'var(--text-xs)', padding: '4px 10px' }}
@@ -213,7 +221,7 @@ export function Visualizations({ result }) {
 
             <div style={{ background: '#ffffff', borderRadius: 'var(--radius-md)', padding: '12px', overflow: 'auto', textAlign: 'center' }}>
               <img
-                src={`http://localhost:8000${selectedImg.url || `/api/pipeline/${result.run_id}/files/${selectedImg.path}`}`}
+                src={getFullImgUrl(selectedImg)}
                 alt={selectedImg.name}
                 style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain' }}
               />

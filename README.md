@@ -1,17 +1,19 @@
-# 🧠 Autonomous AI Data Scientist (AADS)
+# 🧠 Autonomous AI Data Scientist (AUDAS)
 
 <div align="center">
 
-[![Live Demo](https://img.shields.io/badge/🚀%20Live%20Demo-Streamlit%20Cloud-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://autonomous-data-science-ai-agent.streamlit.app/)
-[![React](https://img.shields.io/badge/Frontend-React%2018%20%7C%20Vite-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
-[![FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Vite App](https://img.shields.io/badge/🚀%20Live%20App-Vercel%20%7C%20React%2018-7928CA?style=for-the-badge&logo=vercel&logoColor=white)](https://autonomous-data-science-ai-agent.vercel.app/)
+[![FastAPI Backend](https://img.shields.io/badge/⚡%20API%20Backend-Render-46E3B7?style=for-the-badge&logo=render&logoColor=black)](https://audas-backend.onrender.com)
+[![Streamlit Demo](https://img.shields.io/badge/📊%20Classic%20Demo-Streamlit%20Cloud-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://autonomous-data-science-ai-agent.streamlit.app/)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
-[![LangChain](https://img.shields.io/badge/Framework-LangChain%20Core-1C3C3C?style=for-the-badge&logo=langchain&logoColor=white)](https://python.langchain.com/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
-**An Agentic AI Data Scientist that autonomously transforms raw tabular datasets and natural-language objectives into full-lifecycle, production-ready, reproducible Machine Learning projects.**
+**An Agentic AI Data Scientist (AUDAS) that autonomously transforms raw tabular datasets and natural-language objectives into full-lifecycle, production-ready, reproducible Machine Learning projects.**
 
-🚀 **Live Web Application**: [https://autonomous-data-science-ai-agent.streamlit.app/](https://autonomous-data-science-ai-agent.streamlit.app/)
+### 🌟 **[Launch Live Web Application (Vercel)](https://autonomous-data-science-ai-agent.vercel.app/)**
+*✨ Deep Black & Radiant Royal Purple UI · Frontier Model Search · Real-Time Agentic Pipeline*
+
+🔗 **API Server (Render)**: [https://audas-backend.onrender.com](https://audas-backend.onrender.com) &nbsp;|&nbsp; 📊 **Streamlit Alternative**: [https://autonomous-data-science-ai-agent.streamlit.app/](https://autonomous-data-science-ai-agent.streamlit.app/)
 
 </div>
 
@@ -47,7 +49,7 @@
 
 ## 🤖 Agentic Multi-Agent Architecture
 
-AADS is built on a **Supervisor–Specialist Agentic Pattern**, where a central Orchestrator manages specialized autonomous workers through every phase of the data science lifecycle:
+AUDAS is built on a **Supervisor–Specialist Agentic Pattern**, where a central Orchestrator manages specialized autonomous workers through every phase of the data science lifecycle:
 
 ```mermaid
 flowchart TB
@@ -61,7 +63,7 @@ flowchart TB
     %% Supervisor
     subgraph Supervisor ["🧠 Master Supervisor Layer"]
         direction TB
-        Orchestrator["⚡ AADS Master Orchestrator<br/><i>(Lifecycle Coordination & Event Routing)</i>"]
+        Orchestrator["⚡ AUDAS Master Orchestrator<br/><i>(Lifecycle Coordination & Event Routing)</i>"]
         LLM["🤖 Multi-LLM Reasoning Engine<br/><i>(Claude 3.7 / GPT-4.5 / Gemini 2.0 / DeepSeek / Groq / Ollama)</i>"]
         RunState["🗄️ Immutable Run State & Audit Trail<br/><i>(Decisions, Lineage & Metrics)</i>"]
     end
@@ -171,7 +173,7 @@ flowchart TB
 
 ## 🎨 Modern UI & Experience
 
-AADS offers a **React 18 + Vite** web interface powered by a **FastAPI backend**:
+AUDAS offers a **React 18 + Vite** web interface powered by a **FastAPI backend**:
 - **Radiant Purple Aesthetic**: Built with deep obsidian surfaces (`#05020c`), radiant purple lighting, and frosted glass components.
 - **Real-Time Pipeline Stepper**: Live tracking of all 8 pipeline phases with elapsed timers, progress percentages, and streaming audit logs.
 - **Frontier Model Combobox**: Search, type, or pick top frontier models with instant keyboard navigation.
@@ -179,10 +181,13 @@ AADS offers a **React 18 + Vite** web interface powered by a **FastAPI backend**
 
 ---
 
-## 🚀 Live Demo & How to Use
+## 🚀 Live Deployments & Web Access
 
-Try the live web application here:
-🔗 **[https://autonomous-data-science-ai-agent.streamlit.app/](https://autonomous-data-science-ai-agent.streamlit.app/)**
+| Service | Technology | Link | Description |
+| :--- | :--- | :--- | :--- |
+| **Primary Web App** | **React 18 + Vite (Vercel)** | 🔗 **[autonomous-data-science-ai-agent.vercel.app](https://autonomous-data-science-ai-agent.vercel.app/)** | Flagship interactive UI with Deep Black & Royal Purple theme, model search combobox, and real-time agentic stepper. |
+| **API Backend** | **FastAPI (Render)** | ⚡ **[audas-backend.onrender.com](https://audas-backend.onrender.com)** | High-speed ASGI REST API and SSE event streaming powering ML execution. |
+| **Classic Demo** | **Streamlit Cloud** | 📊 **[autonomous-data-science-ai-agent.streamlit.app](https://autonomous-data-science-ai-agent.streamlit.app/)** | Pure Python standalone web dashboard. |
 
 ### 3-Step Workflow:
 1. **Upload Dataset / Pick Sample**: Upload your CSV, Excel, or Parquet dataset (or choose the built-in Customer Churn dataset).

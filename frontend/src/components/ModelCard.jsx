@@ -1,12 +1,13 @@
 import React from 'react';
 import { Card } from './Card';
+import { getModelDownloadUrl } from '../api';
 
 export function ModelCard({ model, runId }) {
   const { rank = 1, model_name = 'Model', metrics = {}, training_time = 0, selection_reason, filename, download_url } = model;
   const isRank1 = rank === 1;
 
   const actualFileName = filename || `model_${String(rank).padStart(2, '0')}_${(model_name || 'model').toLowerCase()}.pkl`;
-  const actualDownloadUrl = download_url || (runId ? `http://localhost:8000/api/pipeline/${runId}/models/${rank}/download` : '#');
+  const actualDownloadUrl = download_url || (runId ? getModelDownloadUrl(runId, rank) : '#');
 
   return (
     <Card

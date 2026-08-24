@@ -32,19 +32,25 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 # Registry of supported providers
-_SUPPORTED_PROVIDERS = {"openrouter", "google", "openai", "anthropic", "groq", "ollama"}
+_SUPPORTED_PROVIDERS = {"openrouter", "nvidia", "google", "openai", "anthropic", "ollama", "custom"}
 
 # Curated models per provider
 DEFAULT_PROVIDER_MODELS: dict[str, list[str]] = {
     "openrouter": [
-        "anthropic/claude-3.5-sonnet",
-        "openai/gpt-4o",
-        "deepseek/deepseek-r1",
         "google/gemini-2.0-flash-001",
         "meta-llama/llama-3.3-70b-instruct",
-        "qwen/qwen-2.5-72b-instruct",
         "openai/gpt-4o-mini",
-        "mistralai/mistral-large-2411",
+        "anthropic/claude-3.5-sonnet",
+        "deepseek/deepseek-r1",
+        "qwen/qwen-2.5-72b-instruct",
+    ],
+    "nvidia": [
+        "meta/llama-3.3-70b-instruct",
+        "deepseek-ai/deepseek-r1",
+        "nvidia/llama-3.1-nemotron-70b-instruct",
+        "mistralai/mistral-large-2-instruct",
+        "meta/llama-3.1-8b-instruct",
+        "nvidia/nemotron-4-340b-instruct",
     ],
     "google": [
         "gemini-2.0-flash",
@@ -53,8 +59,8 @@ DEFAULT_PROVIDER_MODELS: dict[str, list[str]] = {
         "gemini-2.0-pro-exp-02-05",
     ],
     "openai": [
-        "gpt-4o",
         "gpt-4o-mini",
+        "gpt-4o",
         "o3-mini",
         "o1",
         "gpt-4-turbo",
@@ -64,12 +70,6 @@ DEFAULT_PROVIDER_MODELS: dict[str, list[str]] = {
         "claude-3-5-haiku-20241022",
         "claude-3-opus-20240229",
     ],
-    "groq": [
-        "llama-3.3-70b-versatile",
-        "llama-3.1-8b-instant",
-        "deepseek-r1-distill-llama-70b",
-        "mixtral-8x7b-32768",
-    ],
     "ollama": [
         "llama3.2",
         "llama3.1",
@@ -77,6 +77,9 @@ DEFAULT_PROVIDER_MODELS: dict[str, list[str]] = {
         "mistral",
         "qwen2.5",
         "phi3",
+    ],
+    "custom": [
+        "custom-model",
     ],
 }
 
@@ -143,7 +146,8 @@ class OpenAILikeLLM(BaseAADSLLM):
 
     def invoke(self, input_data: Any) -> AADSLLMResponse:
         messages = self._normalize_messages(input_data)
-        api_key = self.api_key or os.getenv("OPENROUTER_API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("AADS_LLM_API_KEY") or "dummy-key"
+        raw_key = self.api_key or os.getenv("OPENROUTER_API_KEY") or os.getenv("GROQ_API_KEY") or os.getenv("OPENAI_API_KEY") or os.getenv("AADS_LLM_API_KEY") or "dummy-key"
+        api_key = str(raw_key).strip().encode("ascii", "ignore").decode("ascii")
         endpoint = f"{self.base_url.rstrip('/')}/chat/completions" if self.base_url else "https://api.openai.com/v1/chat/completions"
 
         headers = {
@@ -169,7 +173,7 @@ class OpenAILikeLLM(BaseAADSLLM):
         )
 
         try:
-            with urllib.request.urlopen(req, timeout=60) as resp:
+            with urllib.request.urlopen(req, timeout=25) as resp:
                 resp_data = json.loads(resp.read().decode("utf-8"))
                 choice = resp_data.get("choices", [{}])[0]
                 content = choice.get("message", {}).get("content", "")
@@ -312,6 +316,31 @@ def list_provider_models(provider: str, api_key: Optional[str] = None) -> list[s
             logger.debug("openrouter_model_fetch_failed", error=str(e))
             return fallback
 
+    # Live query for NVIDIA NIM
+    if prov == "nvidia" and api_key:
+        try:
+            clean_k = str(api_key).strip().encode("ascii", "ignore").decode("ascii")
+            req = urllib.request.Request(
+                "https://integrate.api.nvidia.com/v1/models",
+                headers={
+                    "User-Agent": "AADS-Agent/1.0",
+                    "Authorization": f"Bearer {clean_k}",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                if resp.status == 200:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    model_ids = [m["id"] for m in data.get("data", []) if "id" in m]
+                    if model_ids:
+                        return sorted(model_ids)
+        except Exception as e:
+            logger.debug("nvidia_model_fetch_failed", error=str(e))
+            return fallback
+
+    # Live query for Custom OpenAI-compatible endpoint
+    if prov == "custom" and api_key:
+        return fallback
+
     # Live query for Ollama
     if prov == "ollama":
         try:
@@ -348,10 +377,15 @@ def get_llm(config: "AADSConfig") -> BaseAADSLLM:
             f"Supported: {list(_SUPPORTED_PROVIDERS)}"
         )
 
+    # Resolve raw model name if missing or passed as 'default'
+    raw_model = (config.llm_model or "").strip()
+    if not raw_model or raw_model.lower() == "default":
+        raw_model = DEFAULT_PROVIDER_MODELS.get(provider, [""])[0]
+
     # 1. OpenRouter
     if provider == "openrouter":
         return OpenAILikeLLM(
-            model=config.llm_model or "anthropic/claude-3.5-sonnet",
+            model=raw_model or "google/gemini-2.0-flash-001",
             api_key=config.llm_api_key,
             temperature=config.llm_temperature,
             base_url="https://openrouter.ai/api/v1",
@@ -361,45 +395,55 @@ def get_llm(config: "AADSConfig") -> BaseAADSLLM:
             },
         )
 
-    # 2. Groq
-    elif provider == "groq":
+    # 2. NVIDIA NIM
+    elif provider == "nvidia":
         return OpenAILikeLLM(
-            model=config.llm_model or "llama-3.3-70b-versatile",
-            api_key=config.llm_api_key or os.getenv("GROQ_API_KEY"),
+            model=raw_model or "meta/llama-3.3-70b-instruct",
+            api_key=config.llm_api_key or os.getenv("NVIDIA_API_KEY") or os.getenv("NVIDIA_NIM_API_KEY"),
             temperature=config.llm_temperature,
-            base_url="https://api.groq.com/openai/v1",
+            base_url="https://integrate.api.nvidia.com/v1",
         )
 
-    # 3. OpenAI
+    # 3. Custom OpenAI-compatible endpoint
+    elif provider == "custom":
+        base_u = getattr(config, "custom_base_url", None) or os.getenv("CUSTOM_LLM_BASE_URL") or "http://localhost:8000/v1"
+        return OpenAILikeLLM(
+            model=raw_model or "custom-model",
+            api_key=config.llm_api_key or "dummy-key",
+            temperature=config.llm_temperature,
+            base_url=base_u.rstrip("/"),
+        )
+
+    # 4. OpenAI
     elif provider == "openai":
         return OpenAILikeLLM(
-            model=config.llm_model or "gpt-4o",
+            model=raw_model or "gpt-4o-mini",
             api_key=config.llm_api_key or os.getenv("OPENAI_API_KEY"),
             temperature=config.llm_temperature,
             base_url="https://api.openai.com/v1",
         )
 
-    # 4. Ollama (local)
+    # 5. Ollama (local)
     elif provider == "ollama":
         return OpenAILikeLLM(
-            model=config.llm_model or "llama3.2",
+            model=raw_model or "llama3.2",
             api_key="ollama",
             temperature=config.llm_temperature,
             base_url="http://localhost:11434/v1",
         )
 
-    # 5. Google Gemini
+    # 6. Google Gemini
     elif provider == "google":
         return GoogleGeminiLLM(
-            model=config.llm_model or "gemini-2.0-flash",
+            model=raw_model or "gemini-2.0-flash",
             api_key=config.llm_api_key or os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY"),
             temperature=config.llm_temperature,
         )
 
-    # 6. Anthropic
+    # 7. Anthropic
     elif provider == "anthropic":
         return AnthropicLLM(
-            model=config.llm_model or "claude-3-5-sonnet-20241022",
+            model=raw_model or "claude-3-5-sonnet-20241022",
             api_key=config.llm_api_key or os.getenv("ANTHROPIC_API_KEY"),
             temperature=config.llm_temperature,
         )
@@ -411,29 +455,37 @@ def test_llm_connection(
     provider: str,
     model: str,
     api_key: Optional[str] = None,
+    base_url: Optional[str] = None,
 ) -> tuple[bool, str]:
     """Test connection to an LLM provider and verify the API key and model availability.
 
     Args:
-        provider: Provider name (e.g. 'openrouter', 'google', 'openai', 'groq').
+        provider: Provider name (e.g. 'openrouter', 'nvidia', 'google', 'openai', 'custom').
         model: Target model identifier.
         api_key: Optional API key.
+        base_url: Optional custom base URL for custom provider.
 
     Returns:
         Tuple of (is_successful: bool, message: str).
     """
     from aads.core.config import AADSConfig
 
+    prov_clean = (provider or "openrouter").lower().strip()
+    m_clean = (model or "").strip()
+    if not m_clean or m_clean.lower() == "default":
+        m_clean = DEFAULT_PROVIDER_MODELS.get(prov_clean, [""])[0]
+
     cfg = AADSConfig(
         execution_mode="ai",
-        llm_provider=provider,
-        llm_model=model,
+        llm_provider=prov_clean,
+        llm_model=m_clean,
         llm_api_key=api_key if api_key and api_key.strip() else None,
+        custom_base_url=base_url if base_url and base_url.strip() else None,
     )
     try:
         llm = get_llm(cfg)
         resp = llm.invoke("Respond with only the word: OK")
         content = getattr(resp, "content", "") or str(resp)
-        return True, f"Successfully connected to {provider.upper()} ({model})! Model response: {content.strip()[:60]}"
+        return True, f"Successfully connected to {prov_clean.upper()} ({m_clean})! Model response: {content.strip()[:60]}"
     except Exception as e:
         return False, f"Connection failed: {e}"

@@ -48,11 +48,20 @@ def plot_distributions(
     output_dir.mkdir(parents=True, exist_ok=True)
     generated: list[str] = []
 
+    # Dynamic RAM Auto-Scaling: 20k rows on low-RAM containers, up to 100k rows on local RAM
+    try:
+        from aads.tools.ml.trainer import get_memory_budget_samples
+        sample_limit = 20000 if get_memory_budget_samples() <= 25000 else 100000
+    except Exception:
+        sample_limit = 20000
+
+    plot_df = df.sample(n=min(len(df), sample_limit), random_state=42) if len(df) > sample_limit else df
+
     cols_to_plot = numeric_cols[:max_cols]
     for col in cols_to_plot:
-        if col not in df.columns:
+        if col not in plot_df.columns:
             continue
-        series = df[col].dropna()
+        series = plot_df[col].dropna()
         if len(series) == 0:
             continue
 
@@ -105,11 +114,13 @@ def plot_categorical(
     output_dir.mkdir(parents=True, exist_ok=True)
     generated: list[str] = []
 
+    plot_df = df.sample(n=min(len(df), 20000), random_state=42) if len(df) > 20000 else df
+
     cols_to_plot = cat_cols[:max_cols]
     for col in cols_to_plot:
-        if col not in df.columns:
+        if col not in plot_df.columns:
             continue
-        series = df[col].dropna()
+        series = plot_df[col].dropna()
         if len(series) == 0:
             continue
 
@@ -151,13 +162,14 @@ def plot_correlations(
         List containing the generated correlation heatmap path.
     """
     output_dir.mkdir(parents=True, exist_ok=True)
-    valid_cols = [c for c in numeric_cols if c in df.columns]
+    plot_df = df.sample(n=min(len(df), 20000), random_state=42) if len(df) > 20000 else df
+    valid_cols = [c for c in numeric_cols if c in plot_df.columns]
     if len(valid_cols) < 2:
         return []
 
     # Limit to top 20 numeric columns to avoid unreadable massive heatmaps
     subset_cols = valid_cols[:20]
-    corr_df = df[subset_cols].corr(method="pearson").fillna(0.0)
+    corr_df = plot_df[subset_cols].corr(method="pearson").fillna(0.0)
 
     fig, ax = plt.subplots(figsize=(max(8, len(subset_cols) * 0.6), max(6, len(subset_cols) * 0.5)))
     try:
@@ -210,11 +222,12 @@ def plot_outliers(
     output_dir.mkdir(parents=True, exist_ok=True)
     generated: list[str] = []
 
+    plot_df = df.sample(n=min(len(df), 20000), random_state=42) if len(df) > 20000 else df
     cols_to_plot = numeric_cols[:max_cols]
     for col in cols_to_plot:
-        if col not in df.columns:
+        if col not in plot_df.columns:
             continue
-        series = df[col].dropna()
+        series = plot_df[col].dropna()
         if len(series) < 5:
             continue
 

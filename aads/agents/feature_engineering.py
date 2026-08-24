@@ -27,9 +27,71 @@ class FeatureEngineeringAgent:
         self,
         config: Optional[AADSConfig] = None,
         artifact_manager: Optional[ArtifactManager] = None,
+        llm: Any = None,
     ) -> None:
         self.config = config or AADSConfig()
         self.artifact_manager = artifact_manager
+        self.llm = llm
+
+    def _consult_ai_feature_engineering(
+        self,
+        X_train: pd.DataFrame,
+        y_train: pd.Series,
+        state: RunState,
+    ) -> tuple[list[str], list[dict[str, Any]]]:
+        """Consult LLM to identify noisy/non-predictive columns to drop and domain interactions to create."""
+        if getattr(self.config, "execution_mode", "local") != "ai":
+            return [], []
+
+        llm_client = self.llm
+        if llm_client is None:
+            try:
+                from aads.core.llm import get_llm
+                llm_client = get_llm(self.config)
+            except Exception:
+                return [], []
+
+        try:
+            col_info = []
+            for col in list(X_train.columns)[:35]:
+                nunique = X_train[col].nunique(dropna=False)
+                dtype = str(X_train[col].dtype)
+                col_info.append(f"- {col} (dtype={dtype}, distinct={nunique})")
+
+            prompt = (
+                f"You are a World-Class Kaggle Grandmaster and Principal Data Scientist.\n"
+                f"Objective: {state.user_objective}\n"
+                f"Task Type: {state.task_type.value if state.task_type else 'classification'}\n"
+                f"Target Column: {state.target_column}\n\n"
+                f"Feature Columns:\n" + "\n".join(col_info) + "\n\n"
+                f"Your goal is to MAXIMIZE predictive accuracy and eliminate noise.\n"
+                f"Return valid JSON ONLY with this exact structure:\n"
+                f"{{\n"
+                f'  "drop_features": ["list", "of", "useless", "or", "non_predictive_id_columns"],\n'
+                f'  "domain_interactions": [\n'
+                f'    {{"name": "interaction_col_name", "col1": "existing_col", "op": "/", "col2": "existing_col"}}\n'
+                f"  ]\n"
+                f"}}\n"
+                f"Note: For 'op', supported operators are '/', '*', '+', '-'. Only select numerical columns for domain_interactions."
+            )
+
+            response = llm_client.invoke(prompt)
+            raw = str(getattr(response, "content", "") or response).strip()
+            
+            # Extract JSON from potential markdown fence
+            if "```" in raw:
+                import re
+                match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw, re.DOTALL)
+                if match:
+                    raw = match.group(1)
+
+            parsed = json.loads(raw)
+            drops = [c for c in parsed.get("drop_features", []) if c in X_train.columns]
+            interactions = parsed.get("domain_interactions", [])
+            return drops, interactions
+        except Exception as e:
+            logger.debug("ai_feature_engineering_consultation_skipped", error=str(e))
+            return [], []
 
     def run(
         self,
@@ -71,6 +133,51 @@ class FeatureEngineeringAgent:
                 task_type=task_type,
                 max_new_features=10,
             )
+
+        # AI Cognitive Feature Selection & Domain Synthesis
+        ai_drops, ai_interactions = self._consult_ai_feature_engineering(X_train, y_train, state)
+
+        # 1. Apply AI Domain Interactions
+        for inter in ai_interactions:
+            try:
+                name = inter.get("name")
+                c1 = inter.get("col1")
+                c2 = inter.get("col2")
+                op = inter.get("op", "/")
+                if c1 in X_train_fe.columns and c2 in X_train_fe.columns and name:
+                    if op == "/":
+                        X_train_fe[name] = X_train_fe[c1] / (X_train_fe[c2].abs() + 1e-6)
+                        X_test_fe[name] = X_test_fe[c1] / (X_test_fe[c2].abs() + 1e-6)
+                        if X_val_fe is not None:
+                            X_val_fe[name] = X_val_fe[c1] / (X_val_fe[c2].abs() + 1e-6)
+                    elif op == "*":
+                        X_train_fe[name] = X_train_fe[c1] * X_train_fe[c2]
+                        X_test_fe[name] = X_test_fe[c1] * X_test_fe[c2]
+                        if X_val_fe is not None:
+                            X_val_fe[name] = X_val_fe[c1] * X_val_fe[c2]
+                    elif op == "+":
+                        X_train_fe[name] = X_train_fe[c1] + X_train_fe[c2]
+                        X_test_fe[name] = X_test_fe[c1] + X_test_fe[c2]
+                        if X_val_fe is not None:
+                            X_val_fe[name] = X_val_fe[c1] + X_val_fe[c2]
+                    elif op == "-":
+                        X_train_fe[name] = X_train_fe[c1] - X_train_fe[c2]
+                        X_test_fe[name] = X_test_fe[c1] - X_test_fe[c2]
+                        if X_val_fe is not None:
+                            X_val_fe[name] = X_val_fe[c1] - X_val_fe[c2]
+                    log["created_features"].append({"name": name, "type": f"ai_domain_{op}", "source": [c1, c2]})
+            except Exception as e:
+                logger.debug("ai_interaction_application_failed", error=str(e))
+
+        # 2. Apply AI Noise Pruning (Drop non-predictive features)
+        if ai_drops:
+            valid_drops = [c for c in ai_drops if c in X_train_fe.columns and len(X_train_fe.columns) > len(ai_drops) + 1]
+            if valid_drops:
+                X_train_fe.drop(columns=valid_drops, inplace=True, errors="ignore")
+                X_test_fe.drop(columns=valid_drops, inplace=True, errors="ignore")
+                if X_val_fe is not None:
+                    X_val_fe.drop(columns=valid_drops, inplace=True, errors="ignore")
+                log["dropped_features"].extend(valid_drops)
 
         state.mark_phase_complete("feature_engineering")
 

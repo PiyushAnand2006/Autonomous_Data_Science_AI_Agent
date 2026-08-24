@@ -58,7 +58,7 @@ class AADSConfig(BaseSettings):
     # ── LLM provider ──────────────────────────────────────────────────────
     llm_provider: str = Field(
         default="openrouter",
-        description="LLM provider key (openrouter, google, openai, anthropic, groq, ollama)",
+        description="LLM provider key (openrouter, nvidia, google, openai, anthropic, ollama, custom)",
     )
     llm_model: str = Field(
         default="anthropic/claude-3.5-sonnet",
@@ -67,6 +67,14 @@ class AADSConfig(BaseSettings):
     llm_api_key: Optional[str] = Field(
         default=None,
         description="API key for the LLM provider (prefer env var)",
+    )
+    custom_base_url: Optional[str] = Field(
+        default=None,
+        description="Base URL for custom OpenAI-compatible endpoint (e.g. https://api.together.xyz/v1, http://localhost:1234/v1)",
+    )
+    custom_provider_name: Optional[str] = Field(
+        default="Custom Provider",
+        description="Display name for custom provider",
     )
     llm_temperature: float = Field(
         default=0.1,

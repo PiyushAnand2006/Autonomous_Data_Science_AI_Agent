@@ -75,11 +75,24 @@ class AADSOrchestrator:
             Dictionary summarizing all generated artifacts, model metrics, and final RunState.
         """
         import os
-        os.chdir(self.config.project_root)
+        # Resolve source path across direct and standard upload paths
+        candidate_paths = [
+            Path(data_path),
+            Path(data_path).resolve(),
+            self.config.project_root / data_path,
+            self.config.project_root / "storage" / "temp_uploads" / Path(data_path).name,
+            self.config.project_root / "data" / Path(data_path).name,
+            Path("storage/temp_uploads") / Path(data_path).name,
+            Path("data") / Path(data_path).name,
+        ]
+        source_path = None
+        for p in candidate_paths:
+            if p.exists() and p.is_file():
+                source_path = p.resolve()
+                break
 
-        source_path = Path(data_path).resolve()
-        if not source_path.exists():
-            raise FileNotFoundError(f"Dataset file not found: {source_path}")
+        if not source_path:
+            raise FileNotFoundError(f"Dataset file not found: {data_path}")
 
         def _notify(msg: str) -> None:
             if progress_callback:
@@ -150,11 +163,13 @@ class AADSOrchestrator:
         _notify("📊 Generating exploratory data analysis charts and correlation plots...")
         eda_agent = EDAAgent(config=self.config, artifact_manager=artifact_mgr)
         eda_findings = eda_agent.run(df=raw_df, state=state)
+        import gc; gc.collect()
 
         # 8. Agent: Data Cleaning
         _notify("🧹 Sanitizing missing values, date columns, and deduplicating...")
         cleaning_agent = CleaningAgent(config=self.config, artifact_manager=artifact_mgr)
         cleaned_df, cleaning_log = cleaning_agent.run(df=raw_df, state=state)
+        gc.collect()
 
         # 9. Agent: Split Manager
         _notify("✂️ Partitioning data into train/val/test holdouts...")
@@ -167,11 +182,15 @@ class AADSOrchestrator:
         leakage_guard.run(X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test, state=state)
 
         # 11. Agent: Feature Engineering
-        _notify("⚙️ Constructing domain interactions and feature transformations...")
-        fe_agent = FeatureEngineeringAgent(config=self.config, artifact_manager=artifact_mgr)
+        if self.config.execution_mode == "ai":
+            _notify(f"⚙️ [AI Feature Intelligence] Selecting high-value features, pruning noise & synthesizing domain interactions with {self.config.llm_provider.upper()}...")
+        else:
+            _notify("⚙️ Constructing domain interactions and feature transformations...")
+        fe_agent = FeatureEngineeringAgent(config=self.config, artifact_manager=artifact_mgr, llm=llm)
         X_train_fe, X_test_fe, X_val_fe, fe_log = fe_agent.run(
             X_train=X_train, X_test=X_test, y_train=y_train, state=state, X_val=X_val
         )
+        gc.collect()
 
         # 12. Agent: Preprocessing Pipeline
         if self.config.execution_mode == "ai":
@@ -182,20 +201,23 @@ class AADSOrchestrator:
         X_train_enc, X_test_enc, X_val_enc, preprocessor = prep_agent.run(
             X_train=X_train_fe, X_test=X_test_fe, state=state, X_val=X_val_fe
         )
+        gc.collect()
 
         # 13. Agent: ML Experimentation
-        _notify("🤖 Training candidate machine learning models and evaluating leaderboard...")
+        _notify("🤖 Training candidate machine learning models and evaluating leaderboard... [0/12]")
         X_eval_enc = X_val_enc if (X_val_enc is not None and len(X_val_enc) > 0) else X_test_enc
         y_eval = y_val if (y_val is not None and len(y_val) > 0) else y_test
 
-        ml_agent = MLExperimentAgent(config=self.config, artifact_manager=artifact_mgr)
+        ml_agent = MLExperimentAgent(config=self.config, artifact_manager=artifact_mgr, llm=llm)
         best_model, best_model_name, best_metrics, experiments = ml_agent.run(
             X_train=X_train_enc,
             y_train=y_train,
             X_eval=X_eval_enc,
             y_eval=y_eval,
             state=state,
+            progress_callback=_notify,
         )
+        gc.collect()
 
         # 14. Agent: Evaluation & Diagnostics
         _notify("📈 Computing residual diagnostics and holdout test metrics...")

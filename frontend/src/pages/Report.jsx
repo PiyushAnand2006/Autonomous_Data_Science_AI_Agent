@@ -14,46 +14,46 @@ export function Report({ result }) {
     );
   }
 
-  // Format inline markdown (bold, code, links)
+  // Format inline markdown (bold, italic, code, tags)
   const formatInline = (str) => {
     if (!str) return str;
     const parts = [];
     let remaining = str;
 
-    // Simple parser for **bold** and `code`
     let keyIdx = 0;
     while (remaining.length > 0) {
       const boldMatch = remaining.match(/\*\*(.*?)\*\*/);
+      const italicMatch = remaining.match(/(?<!\*)\*([^*]+)\*(?!\*)/);
       const codeMatch = remaining.match(/`(.*?)`/);
 
-      let firstMatch = null;
-      let matchType = null;
-
-      if (boldMatch && (!codeMatch || boldMatch.index < codeMatch.index)) {
-        firstMatch = boldMatch;
-        matchType = 'bold';
-      } else if (codeMatch) {
-        firstMatch = codeMatch;
-        matchType = 'code';
+      const matches = [];
+      if (boldMatch) matches.push({ match: boldMatch, type: 'bold', index: boldMatch.index });
+      if (codeMatch) matches.push({ match: codeMatch, type: 'code', index: codeMatch.index });
+      if (italicMatch && (!boldMatch || italicMatch.index !== boldMatch.index)) {
+        matches.push({ match: italicMatch, type: 'italic', index: italicMatch.index });
       }
 
-      if (!firstMatch) {
+      if (matches.length === 0) {
         parts.push(remaining);
         break;
       }
 
-      const matchIdx = firstMatch.index;
-      if (matchIdx > 0) {
-        parts.push(remaining.substring(0, matchIdx));
+      matches.sort((a, b) => a.index - b.index);
+      const first = matches[0];
+
+      if (first.index > 0) {
+        parts.push(remaining.substring(0, first.index));
       }
 
-      if (matchType === 'bold') {
-        parts.push(<strong key={`b-${keyIdx++}`} style={{ color: 'var(--text-primary)' }}>{firstMatch[1]}</strong>);
-      } else if (matchType === 'code') {
-        parts.push(<code key={`c-${keyIdx++}`} style={{ background: 'var(--surface-3)', padding: '2px 6px', borderRadius: '4px', fontFamily: 'var(--font-mono)', fontSize: '0.85em', color: '#10b981' }}>{firstMatch[1]}</code>);
+      if (first.type === 'bold') {
+        parts.push(<strong key={`b-${keyIdx++}`} style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{first.match[1]}</strong>);
+      } else if (first.type === 'italic') {
+        parts.push(<em key={`i-${keyIdx++}`} style={{ fontStyle: 'italic', color: '#d8b4fe' }}>{first.match[1]}</em>);
+      } else if (first.type === 'code') {
+        parts.push(<code key={`c-${keyIdx++}`} style={{ background: 'rgba(147, 51, 234, 0.18)', padding: '2px 6px', borderRadius: '4px', fontFamily: 'var(--font-mono)', fontSize: '0.85em', color: '#c084fc', border: '1px solid rgba(168, 85, 247, 0.25)' }}>{first.match[1]}</code>);
       }
 
-      remaining = remaining.substring(matchIdx + firstMatch[0].length);
+      remaining = remaining.substring(first.index + first.match[0].length);
     }
 
     return parts;
@@ -159,7 +159,7 @@ export function Report({ result }) {
       <div style={{ marginBottom: '28px' }}>
         <div className="eyebrow">Strategic Executive Briefing</div>
         <h2 style={{ fontSize: '1.75rem', fontWeight: 700, margin: '4px 0 8px 0' }}>
-          🧠 AADS In-Depth Data Science & Machine Learning Analysis Report
+          🧠 AUDAS In-Depth Data Science & Machine Learning Analysis Report
         </h2>
         <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', background: 'var(--surface-2)', padding: '12px 18px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', marginTop: '12px' }}>
           <div><strong>Run ID:</strong> <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{result.run_id}</span></div>

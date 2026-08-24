@@ -95,7 +95,7 @@ def build_executive_summary_md(
 ---"""
 
     # Assemble Full Comprehensive Report
-    report = f"""# 🧠 AADS In-Depth Data Science & Machine Learning Analysis Report
+    report = f"""# 🧠 AUDAS In-Depth Data Science & Machine Learning Analysis Report
 **Run ID:** `{state.run_id}`  
 **Project Objective:** {state.user_objective or 'Autonomous End-to-End Data Science Lifecycle'}  
 **Status:** Completed Successfully  
@@ -178,7 +178,7 @@ Below is the chronological decision ledger recorded by specialist agents during 
 {decisions_list if decisions_list else '- No decisions recorded.'}
 
 ---
-*Report synthesized automatically by Autonomous AI Data Scientist (AADS).*
+*Report synthesized automatically by Autonomous AI Data Scientist (AUDAS).*
 """
     return report
 

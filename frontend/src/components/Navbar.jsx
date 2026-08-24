@@ -14,7 +14,7 @@ export function Navbar({ activeTab, setActiveTab, onOpenSettings, executionMode 
     <nav className="navbar">
       <div className="navbar-brand" onClick={() => setActiveTab('dashboard')}>
         <div className="navbar-brand-icon">🧠</div>
-        <span>AADS</span>
+        <span>AUDAS</span>
       </div>
 
       <div className="navbar-links">

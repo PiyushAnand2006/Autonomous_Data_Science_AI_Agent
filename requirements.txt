@@ -1,5 +1,5 @@
 # =============================================================================
-# AADS — Autonomous AI Data Scientist — Requirements
+# AUDAS — Autonomous AI Data Scientist — Requirements
 # =============================================================================
 
 # ── Data ──

@@ -133,6 +133,7 @@ def _instantiate_model(
 ) -> Any:
     """Instantiate model by name with random seed and optional hyperparameters."""
     p = params or {}
+    model_name = model_name.replace(" (AI-Tuned)", "").replace(" (Tuned)", "").strip()
 
     # ── Regression Models ─────────────────────────────────────────────────────
     if model_name == "LinearRegression":
@@ -324,6 +325,27 @@ def _instantiate_model(
         return RandomForestClassifier(random_state=random_state, n_jobs=-1)
 
 
+def get_memory_budget_samples() -> int:
+    """Determine safe training sample size dynamically based on available system RAM.
+
+    - Low Memory / Free Tier Containers (<= 1.2 GB RAM): 25,000 samples (prevents Render 512MB OOM)
+    - Medium Memory Instances (1.2 GB - 4 GB RAM): 100,000 samples
+    - High Memory Local / Cloud Workstations (> 4 GB RAM): 1,000,000 samples (train on 100% of rows)
+    """
+    try:
+        import psutil
+        vm = psutil.virtual_memory()
+        total_ram_mb = vm.total / (1024 * 1024)
+        avail_ram_mb = vm.available / (1024 * 1024)
+        if total_ram_mb <= 1200 or avail_ram_mb < 600:
+            return 25000
+        elif total_ram_mb <= 4096 or avail_ram_mb < 2000:
+            return 100000
+        else:
+            return 1000000
+    except Exception:
+        return 100000
+
 
 def train_and_evaluate_model(
     model_name: str,
@@ -338,14 +360,26 @@ def train_and_evaluate_model(
     """Train a model and compute holdout validation metrics and training duration."""
     model = _instantiate_model(model_name, task_type, random_state=random_state, params=params)
 
-    # Subsample for KNN on massive datasets to guarantee sub-second execution
-    if model_name in ["KNeighborsRegressor", "KNeighborsClassifier"] and len(X_train) > 10000:
+    # Dynamic RAM Auto-Scaling: Keep Render 512MB safe while unlocking full dataset on local RAM
+    max_samples = get_memory_budget_samples()
+    if len(X_train) > max_samples:
         if isinstance(X_train, pd.DataFrame):
-            sample_idx = X_train.sample(n=10000, random_state=random_state).index
-            X_tr = X_train.loc[sample_idx]
-            y_tr = y_train.loc[sample_idx] if y_train is not None else None
+            if y_train is not None and task_type == TaskType.CLASSIFICATION and getattr(y_train, "nunique", lambda: 0)() > 1:
+                try:
+                    from sklearn.model_selection import train_test_split
+                    _, X_tr, _, y_tr = train_test_split(
+                        X_train, y_train, test_size=max_samples, stratify=y_train, random_state=random_state
+                    )
+                except Exception:
+                    sample_idx = X_train.sample(n=max_samples, random_state=random_state).index
+                    X_tr = X_train.loc[sample_idx]
+                    y_tr = y_train.loc[sample_idx] if y_train is not None else None
+            else:
+                sample_idx = X_train.sample(n=max_samples, random_state=random_state).index
+                X_tr = X_train.loc[sample_idx]
+                y_tr = y_train.loc[sample_idx] if y_train is not None else None
         else:
-            indices = np.random.RandomState(random_state).choice(len(X_train), 10000, replace=False)
+            indices = np.random.RandomState(random_state).choice(len(X_train), max_samples, replace=False)
             X_tr = X_train[indices]
             y_tr = y_train[indices] if y_train is not None else None
     else:

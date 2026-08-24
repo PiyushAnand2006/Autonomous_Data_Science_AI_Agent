@@ -109,7 +109,6 @@ class GoalPlannerAgent:
         elif any(w in obj_lower for w in ["explore", "eda", "summary", "profile", "describe"]) and not any(w in obj_lower for w in ["predict", "train", "model"]):
             task_type = TaskType.DESCRIPTIVE
         else:
-            # Default heuristic based on target candidate type
             task_type = TaskType.CLASSIFICATION
 
         # 2. Determine target column if applicable
@@ -128,11 +127,25 @@ class GoalPlannerAgent:
                         break
 
         # Fallback to profile candidates or last column if not found or not specified
-        if not target and task_type in (TaskType.REGRESSION, TaskType.CLASSIFICATION):
+        if not target:
             if profile.target_candidates:
                 target = profile.target_candidates[0]
             elif all_cols:
                 target = all_cols[-1]
+
+        # Check target column profile to confirm classification vs regression
+        if target and task_type not in (TaskType.CLUSTERING, TaskType.ANOMALY, TaskType.DESCRIPTIVE):
+            target_meta = next((c for c in profile.columns if c.name == target), None)
+            if target_meta:
+                is_num = target_meta.dtype.lower() in ("float64", "float32", "float", "int64", "int32", "int", "numeric")
+                is_float = "float" in target_meta.dtype.lower()
+                unique_cnt = target_meta.unique_count
+                if is_float or (is_num and unique_cnt > 20):
+                    task_type = TaskType.REGRESSION
+                else:
+                    task_type = TaskType.CLASSIFICATION
+            elif not any(w in obj_lower for w in ["regress", "price", "yield", "amount", "cost"]):
+                task_type = TaskType.CLASSIFICATION
 
         # 3. Determine steps based on task type
         if task_type == TaskType.DESCRIPTIVE:
