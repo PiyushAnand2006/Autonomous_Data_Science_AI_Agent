@@ -36,41 +36,95 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Custom CSS for modern, premium aesthetics
+# Custom CSS for modern, premium aesthetics (Deep Obsidian & Radiant Royal Purple)
 st.markdown("""
 <style>
+    /* Main Background & Ambient Glow */
+    .stApp {
+        background-color: #06020e;
+        background-image: 
+            radial-gradient(ellipse 120% 80% at 50% 115%, #3b0764 0%, #1c053a 45%, #0a0218 75%, #06020e 100%),
+            radial-gradient(circle 800px at 0% 100%, rgba(109, 40, 217, 0.4) 0%, transparent 65%),
+            radial-gradient(circle 800px at 100% 100%, rgba(126, 34, 206, 0.4) 0%, transparent 65%);
+        background-attachment: fixed;
+    }
+    
+    /* Header Typography */
     .main-header {
-        font-size: 2.2rem;
-        font-weight: 700;
-        color: #1e3a8a;
-        margin-bottom: 0.2rem;
+        font-size: 2.4rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #faf5ff 0%, #d8b4fe 50%, #c084fc 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.3rem;
+        letter-spacing: -0.02em;
     }
     .sub-header {
         font-size: 1.05rem;
-        color: #475569;
-        margin-bottom: 1.5rem;
+        color: #d8b4fe;
+        margin-bottom: 1.6rem;
     }
+    
+    /* Cards & Containers */
     .model-card {
-        background-color: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 10px;
-        padding: 16px;
-        margin-bottom: 12px;
+        background-color: rgba(27, 12, 54, 0.85);
+        border: 1px solid rgba(168, 85, 247, 0.32);
+        border-radius: 12px;
+        padding: 18px;
+        margin-bottom: 14px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 16px rgba(147, 51, 234, 0.15);
     }
     .model-badge {
-        background-color: #2563eb;
-        color: white;
-        padding: 3px 8px;
-        border-radius: 6px;
+        background: linear-gradient(135deg, #7c3aed, #9333ea);
+        color: #ffffff;
+        padding: 4px 10px;
+        border-radius: 8px;
         font-size: 0.85rem;
         font-weight: 600;
+        box-shadow: 0 2px 8px rgba(147, 51, 234, 0.4);
     }
     .status-badge-pass {
         background-color: #10b981;
         color: white;
-        padding: 4px 10px;
+        padding: 4px 12px;
         border-radius: 12px;
         font-weight: 600;
+        box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+    }
+    
+    /* Buttons */
+    div.stButton > button:first-child {
+        background: linear-gradient(135deg, #7c3aed 0%, #9333ea 50%, #a855f7 100%);
+        color: #ffffff;
+        border: 1px solid rgba(192, 132, 252, 0.4);
+        border-radius: 10px;
+        font-weight: 600;
+        box-shadow: 0 4px 18px rgba(147, 51, 234, 0.4);
+        transition: all 0.2s ease-in-out;
+    }
+    div.stButton > button:first-child:hover {
+        background: linear-gradient(135deg, #8b5cf6 0%, #a855f7 50%, #c084fc 100%);
+        box-shadow: 0 6px 26px rgba(168, 85, 247, 0.6);
+        border-color: #e9d5ff;
+        transform: translateY(-1px);
+    }
+    
+    /* Tabs & Widgets */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 8px;
+        background-color: rgba(19, 8, 38, 0.6);
+        padding: 6px;
+        border-radius: 12px;
+        border: 1px solid rgba(168, 85, 247, 0.2);
+    }
+    .stTabs [data-baseweb="tab"] {
+        border-radius: 8px;
+        color: #d8b4fe;
+        font-weight: 500;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: rgba(147, 51, 234, 0.35) !important;
+        color: #ffffff !important;
     }
 </style>
 """, unsafe_allow_html=True)

@@ -1,0 +1,11 @@
+# ── GitHub Linguist Language Configuration ──
+# Ensure JSX and CSS frontend files are properly detected and counted in repository language statistics
+
+*.jsx linguist-language=JavaScript
+*.jsx linguist-detectable=true
+*.js linguist-detectable=true
+*.css linguist-detectable=true
+*.html linguist-detectable=true
+
+frontend/** linguist-detectable=true
+frontend/** linguist-vendored=false
