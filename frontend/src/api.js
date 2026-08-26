@@ -144,8 +144,9 @@ export async function listPipelineFiles(runId) {
   return res.json();
 }
 
-export function getFileDownloadUrl(runId, filePath) {
-  return `${API_BASE}/api/pipeline/${runId}/files/${filePath}`;
+export function getFileDownloadUrl(runId, filePath, isDownload = true) {
+  const query = isDownload ? '?download=true' : '?download=false';
+  return `${API_BASE}/api/pipeline/${runId}/files/${filePath}${query}`;
 }
 
 export function getZipDownloadUrl(runId) {

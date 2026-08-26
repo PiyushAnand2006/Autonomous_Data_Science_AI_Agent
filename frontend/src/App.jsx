@@ -38,7 +38,11 @@ export function App() {
     try {
       const res = await getSettings();
       if (res.settings) {
-        setSettings((prev) => ({ ...prev, ...res.settings }));
+        setSettings((prev) => ({
+          ...prev,
+          ...res.settings,
+          execution_mode: 'local', // Always default to Local execution mode on page reload
+        }));
       }
     } catch (e) {
       console.warn('Backend not ready yet, using defaults', e);
@@ -55,9 +59,9 @@ export function App() {
         executionMode={settings.execution_mode}
       />
 
-      {/* Main Content Area — Kept mounted in DOM so state, running SSE, and tabs are never lost */}
+      {/* Main Content Area — Kept mounted in DOM with smooth animated transitions */}
       <main className="app-main">
-        <div style={{ display: activeTab === 'dashboard' ? 'block' : 'none' }}>
+        <div className={`tab-view-pane ${activeTab === 'dashboard' ? 'active' : ''}`}>
           <Dashboard
             settings={settings}
             setSettings={setSettings}
@@ -68,19 +72,19 @@ export function App() {
           />
         </div>
 
-        <div style={{ display: activeTab === 'leaderboard' ? 'block' : 'none' }}>
+        <div className={`tab-view-pane ${activeTab === 'leaderboard' ? 'active' : ''}`}>
           <Leaderboard result={currentResult} />
         </div>
 
-        <div style={{ display: activeTab === 'visualizations' ? 'block' : 'none' }}>
+        <div className={`tab-view-pane ${activeTab === 'visualizations' ? 'active' : ''}`}>
           <Visualizations result={currentResult} />
         </div>
 
-        <div style={{ display: activeTab === 'report' ? 'block' : 'none' }}>
+        <div className={`tab-view-pane ${activeTab === 'report' ? 'active' : ''}`}>
           <Report result={currentResult} />
         </div>
 
-        <div style={{ display: activeTab === 'artifacts' ? 'block' : 'none' }}>
+        <div className={`tab-view-pane ${activeTab === 'artifacts' ? 'active' : ''}`}>
           <Artifacts result={currentResult} />
         </div>
       </main>

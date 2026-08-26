@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '../components/Card';
 import { FileUploader } from '../components/FileUploader';
 import { PipelineProgress } from '../components/PipelineProgress';
@@ -15,6 +15,8 @@ export function Dashboard({ settings, setSettings, onOpenSettings, currentResult
   const [status, setStatus] = useState(currentResult ? 'completed' : 'idle');
   const [error, setError] = useState(null);
 
+  const activeStreamCloseRef = useRef(null);
+
   useEffect(() => {
     if (!currentResult) {
       setStatus('idle');
@@ -22,6 +24,15 @@ export function Dashboard({ settings, setSettings, onOpenSettings, currentResult
       setError(null);
     }
   }, [currentResult]);
+
+  useEffect(() => {
+    return () => {
+      if (activeStreamCloseRef.current) {
+        activeStreamCloseRef.current();
+        activeStreamCloseRef.current = null;
+      }
+    };
+  }, []);
 
   const [modeNotice, setModeNotice] = useState(null);
 
@@ -31,6 +42,10 @@ export function Dashboard({ settings, setSettings, onOpenSettings, currentResult
 
   const handleModeToggle = (mode) => {
     if (settings?.execution_mode !== mode) {
+      if (activeStreamCloseRef.current) {
+        activeStreamCloseRef.current();
+        activeStreamCloseRef.current = null;
+      }
       if (setSettings) {
         setSettings((prev) => ({ ...prev, execution_mode: mode }));
       }
@@ -48,6 +63,10 @@ export function Dashboard({ settings, setSettings, onOpenSettings, currentResult
   };
 
   const handleFileReady = async (fileInfo) => {
+    if (activeStreamCloseRef.current) {
+      activeStreamCloseRef.current();
+      activeStreamCloseRef.current = null;
+    }
     setDataFile(fileInfo);
     // Reset previous run session to start clean
     if (setCurrentResult) {
@@ -101,10 +120,15 @@ export function Dashboard({ settings, setSettings, onOpenSettings, currentResult
     };
 
     try {
+      if (activeStreamCloseRef.current) {
+        activeStreamCloseRef.current();
+        activeStreamCloseRef.current = null;
+      }
+
       const res = await launchPipeline(payload);
       setRunId(res.run_id);
 
-      subscribeToPipelineStream(
+      const unsubscribe = subscribeToPipelineStream(
         res.run_id,
         (msg) => {
           setLogs((prev) => {
@@ -121,11 +145,13 @@ export function Dashboard({ settings, setSettings, onOpenSettings, currentResult
           });
         },
         (err) => {
+          activeStreamCloseRef.current = null;
           setError(err);
           setIsRunning(false);
           setStatus('error');
         },
         async () => {
+          activeStreamCloseRef.current = null;
           // Completed
           setIsRunning(false);
           setStatus('completed');
@@ -151,6 +177,7 @@ export function Dashboard({ settings, setSettings, onOpenSettings, currentResult
           }
         }
       );
+      activeStreamCloseRef.current = unsubscribe;
     } catch (err) {
       setError(err.message || 'Failed to start pipeline');
       setIsRunning(false);
@@ -331,13 +358,15 @@ export function Dashboard({ settings, setSettings, onOpenSettings, currentResult
 
       {/* Live Pipeline Execution Stream */}
       {(isRunning || logs.length > 0 || error) && (
-        <PipelineProgress
-          logs={logs}
-          status={status}
-          isRunning={isRunning}
-          runId={runId}
-          error={error}
-        />
+        <div className="pipeline-entrance-anim">
+          <PipelineProgress
+            logs={logs}
+            status={status}
+            isRunning={isRunning}
+            runId={runId}
+            error={error}
+          />
+        </div>
       )}
 
       {/* Top Level Run Summary if result exists */}

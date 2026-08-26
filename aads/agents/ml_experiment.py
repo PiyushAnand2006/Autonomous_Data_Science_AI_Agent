@@ -88,19 +88,26 @@ class MLExperimentAgent:
         """
         task_type = state.task_type or TaskType.CLASSIFICATION
         if y_train is not None:
-            try:
-                from sklearn.utils.multiclass import type_of_target
-                t_type = type_of_target(y_train)
-                if t_type in ("continuous", "continuous-multioutput"):
-                    task_type = TaskType.REGRESSION
-                    state.task_type = TaskType.REGRESSION
-                elif t_type in ("binary", "multiclass"):
-                    task_type = TaskType.CLASSIFICATION
-                    state.task_type = TaskType.CLASSIFICATION
-            except Exception:
-                if pd.api.types.is_float_dtype(y_train) or (pd.api.types.is_numeric_dtype(y_train) and getattr(y_train, "nunique", lambda: 0)() > 30):
-                    task_type = TaskType.REGRESSION
-                    state.task_type = TaskType.REGRESSION
+            n_unique = getattr(y_train, "nunique", lambda: len(set(y_train)))()
+            is_float = pd.api.types.is_float_dtype(y_train)
+            is_num = pd.api.types.is_numeric_dtype(y_train)
+
+            # If target is float or numeric with > 20 unique values, it is definitely REGRESSION
+            if is_float or (is_num and (n_unique > 20 or (len(y_train) > 50 and n_unique / len(y_train) > 0.05 and n_unique > 10))):
+                task_type = TaskType.REGRESSION
+                state.task_type = TaskType.REGRESSION
+            elif not is_num or n_unique <= 20:
+                task_type = TaskType.CLASSIFICATION
+                state.task_type = TaskType.CLASSIFICATION
+            else:
+                try:
+                    from sklearn.utils.multiclass import type_of_target
+                    t_type = type_of_target(y_train)
+                    if t_type in ("continuous", "continuous-multioutput"):
+                        task_type = TaskType.REGRESSION
+                        state.task_type = TaskType.REGRESSION
+                except Exception:
+                    pass
 
         base_models = candidate_models or get_candidate_models(task_type)
         models_to_run = list(base_models)
@@ -190,7 +197,7 @@ class MLExperimentAgent:
 
             if progress_callback:
                 progress_callback(
-                    f"🤖 Training candidate machine learning models and evaluating leaderboard... [{idx+1}/{len(models_to_run)}] ({model_name})"
+                    f"⚡ [ML EXPERIMENT] Training candidate machine learning models and evaluating leaderboard... [{idx+1}/{len(models_to_run)}] ({model_name})"
                 )
 
         # 1. Multi-metric ranking across all candidate models

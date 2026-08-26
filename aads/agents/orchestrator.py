@@ -98,10 +98,12 @@ class AADSOrchestrator:
             if progress_callback:
                 try:
                     progress_callback(msg)
+                    import time
+                    time.sleep(0.45)
                 except Exception:
                     pass
 
-        _notify("📦 Initializing run state and copying raw data...")
+        _notify("◈ [INIT] Initializing run state and copying raw data...")
 
         # 1. Initialize State & Artifact Manager
         state = RunState.create(
@@ -131,12 +133,12 @@ class AADSOrchestrator:
             try:
                 from aads.core.llm import get_llm
                 llm = get_llm(self.config)
-                _notify(f"🤖 [AI Mode: {self.config.llm_provider.upper()} ({self.config.llm_model})] Initialized provider reasoning client.")
+                _notify(f"✦ [AI SETUP: {self.config.llm_provider.upper()} ({self.config.llm_model})] Initialized provider reasoning client.")
             except Exception as e:
-                _notify(f"⚠️ [AI Mode Warning] Failed to initialize provider ({e}). Falling back to local offline reasoning.")
+                _notify(f"⚠ [AI WARNING] Failed to initialize provider ({e}). Falling back to local offline reasoning.")
 
         # 4. Agent: Profiler
-        _notify("🔍 Profiling dataset dimensions, statistics, and column semantics...")
+        _notify("⬡ [PROFILER] Profiling dataset dimensions, statistics, and column semantics...")
         profiler = ProfilerAgent(config=self.config, artifact_manager=artifact_mgr)
         profile = profiler.run(
             df=raw_df,
@@ -148,44 +150,44 @@ class AADSOrchestrator:
 
         # 5. Agent: Goal & Planner
         if self.config.execution_mode == "ai":
-            _notify(f"🤖 [AI Planning] Querying {self.config.llm_provider.upper()} ({self.config.llm_model}) for strategy & task formulation...")
+            _notify(f"✦ [AI PLANNER] Querying {self.config.llm_provider.upper()} ({self.config.llm_model}) for strategy & task formulation...")
         else:
-            _notify("📋 Formulating task strategy and deterministic execution plan...")
+            _notify("◈ [PLANNER] Formulating task strategy and deterministic execution plan...")
         planner = GoalPlannerAgent(config=self.config, llm=llm)
         plan = planner.plan(profile=profile, state=state)
 
         # 6. Agent: Data Quality
-        _notify("🛡️ Auditing data quality, missing values, and anomalies...")
+        _notify("⬡ [DATA QUALITY] Auditing data quality, missing values, and anomalies...")
         dq_agent = DataQualityAgent(config=self.config, artifact_manager=artifact_mgr)
         dq_report = dq_agent.run(df=raw_df, state=state)
 
         # 7. Agent: EDA & Visualization
-        _notify("📊 Generating exploratory data analysis charts and correlation plots...")
+        _notify("◈ [EDA] Generating exploratory data analysis charts and correlation plots...")
         eda_agent = EDAAgent(config=self.config, artifact_manager=artifact_mgr)
         eda_findings = eda_agent.run(df=raw_df, state=state)
         import gc; gc.collect()
 
         # 8. Agent: Data Cleaning
-        _notify("🧹 Sanitizing missing values, date columns, and deduplicating...")
+        _notify("⬡ [CLEANER] Sanitizing missing values, date columns, and deduplicating...")
         cleaning_agent = CleaningAgent(config=self.config, artifact_manager=artifact_mgr)
         cleaned_df, cleaning_log = cleaning_agent.run(df=raw_df, state=state)
         gc.collect()
 
         # 9. Agent: Split Manager
-        _notify("✂️ Partitioning data into train/val/test holdouts...")
+        _notify("◈ [SPLITTER] Partitioning data into train/val/test holdouts...")
         split_mgr = SplitManager(config=self.config, artifact_manager=artifact_mgr)
         X_train, X_val, X_test, y_train, y_val, y_test = split_mgr.run(df=cleaned_df, state=state)
 
         # 10. Agent: Leakage Guard
-        _notify("🔒 Verifying strict data leakage guards across splits...")
+        _notify("⬡ [LEAKAGE GUARD] Verifying strict data leakage guards across splits...")
         leakage_guard = LeakageGuard(config=self.config, artifact_manager=artifact_mgr)
         leakage_guard.run(X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test, state=state)
 
         # 11. Agent: Feature Engineering
         if self.config.execution_mode == "ai":
-            _notify(f"⚙️ [AI Feature Intelligence] Selecting high-value features, pruning noise & synthesizing domain interactions with {self.config.llm_provider.upper()}...")
+            _notify(f"✦ [AI FEATURE ENG] Selecting high-value features, pruning noise & synthesizing domain interactions with {self.config.llm_provider.upper()}...")
         else:
-            _notify("⚙️ Constructing domain interactions and feature transformations...")
+            _notify("◈ [FEATURE ENG] Constructing domain interactions and feature transformations...")
         fe_agent = FeatureEngineeringAgent(config=self.config, artifact_manager=artifact_mgr, llm=llm)
         X_train_fe, X_test_fe, X_val_fe, fe_log = fe_agent.run(
             X_train=X_train, X_test=X_test, y_train=y_train, state=state, X_val=X_val
@@ -194,9 +196,9 @@ class AADSOrchestrator:
 
         # 12. Agent: Preprocessing Pipeline
         if self.config.execution_mode == "ai":
-            _notify(f"🛠️ [AI Preprocessing] Analyzing feature cardinalities & fitting adaptive encoder pipeline with {self.config.llm_provider.upper()}...")
+            _notify(f"✦ [AI PREPROCESS] Analyzing feature cardinalities & fitting adaptive encoder pipeline with {self.config.llm_provider.upper()}...")
         else:
-            _notify("🛠️ Fitting adaptive encoder and scaling pipeline...")
+            _notify("◈ [PREPROCESS] Fitting adaptive encoder and scaling pipeline...")
         prep_agent = PreprocessingAgent(config=self.config, artifact_manager=artifact_mgr, llm=llm)
         X_train_enc, X_test_enc, X_val_enc, preprocessor = prep_agent.run(
             X_train=X_train_fe, X_test=X_test_fe, state=state, X_val=X_val_fe
@@ -204,7 +206,7 @@ class AADSOrchestrator:
         gc.collect()
 
         # 13. Agent: ML Experimentation
-        _notify("🤖 Training candidate machine learning models and evaluating leaderboard... [0/12]")
+        _notify("⚡ [ML EXPERIMENT] Training candidate machine learning models and evaluating leaderboard... [0/12]")
         X_eval_enc = X_val_enc if (X_val_enc is not None and len(X_val_enc) > 0) else X_test_enc
         y_eval = y_val if (y_val is not None and len(y_val) > 0) else y_test
 
@@ -220,7 +222,7 @@ class AADSOrchestrator:
         gc.collect()
 
         # 14. Agent: Evaluation & Diagnostics
-        _notify("📈 Computing residual diagnostics and holdout test metrics...")
+        _notify("◈ [EVALUATION] Computing residual diagnostics and holdout test metrics...")
         eval_agent = EvaluationAgent(config=self.config, artifact_manager=artifact_mgr)
         eval_report = eval_agent.run(
             model=best_model,
@@ -235,7 +237,7 @@ class AADSOrchestrator:
         replanning_agent.run(evaluation_report=eval_report, state=state, current_iteration=1)
 
         # 16. Agent: Notebook Generation & Validation
-        _notify("📓 Synthesizing and programmatically validating Jupyter Notebook...")
+        _notify("⬡ [NOTEBOOK] Synthesizing and programmatically validating Jupyter Notebook...")
         nb_agent = NotebookGeneratorAgent(config=self.config, artifact_manager=artifact_mgr)
         notebook_dict = nb_agent.run(
             state=state,
@@ -246,9 +248,9 @@ class AADSOrchestrator:
 
         # 17. Agent: Report Generation
         if self.config.execution_mode == "ai":
-            _notify(f"📄 [AI Reporting] Querying {self.config.llm_provider.upper()} ({self.config.llm_model}) for Chief AI Scientist analytical narrative...")
+            _notify(f"✦ [AI REPORTING] Querying {self.config.llm_provider.upper()} ({self.config.llm_model}) for Chief AI Scientist analytical narrative...")
         else:
-            _notify("📄 Synthesizing comprehensive in-depth executive summary...")
+            _notify("◈ [EXECUTIVE REPORT] Synthesizing comprehensive in-depth executive summary...")
         report_agent = ReportGeneratorAgent(config=self.config, artifact_manager=artifact_mgr, llm=llm)
         exec_summary = report_agent.run(
             state=state,

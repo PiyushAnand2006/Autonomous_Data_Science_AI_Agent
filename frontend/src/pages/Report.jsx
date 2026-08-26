@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card } from '../components/Card';
+import { getFileDownloadUrl } from '../api';
 
 export function Report({ result }) {
   if (!result || !result.executive_summary) {
@@ -161,10 +162,39 @@ export function Report({ result }) {
         <h2 style={{ fontSize: '1.75rem', fontWeight: 700, margin: '4px 0 8px 0' }}>
           🧠 AUDAS In-Depth Data Science & Machine Learning Analysis Report
         </h2>
-        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', fontSize: 'var(--text-xs)', color: 'var(--text-muted)', background: 'var(--surface-2)', padding: '12px 18px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', marginTop: '12px' }}>
-          <div><strong>Run ID:</strong> <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{result.run_id}</span></div>
-          <div><strong>Status:</strong> <span style={{ color: '#10b981', fontWeight: 600 }}>✓ Completed Successfully</span></div>
-          <div><strong>Best Model:</strong> <span style={{ color: '#38bdf8', fontWeight: 600 }}>{result.best_model_name}</span></div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px', background: 'var(--surface-2)', padding: '14px 18px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)', marginTop: '12px' }}>
+          <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
+            <div><strong>Run ID:</strong> <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)' }}>{result.run_id}</span></div>
+            <div><strong>Status:</strong> <span style={{ color: '#10b981', fontWeight: 600 }}>✓ Completed Successfully</span></div>
+            <div><strong>Best Model:</strong> <span style={{ color: '#38bdf8', fontWeight: 600 }}>{result.best_model_name}</span></div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <a
+              href={getFileDownloadUrl(result.run_id, '08_Reports/executive_summary.pdf', true)}
+              download="executive_summary.pdf"
+              className="btn btn-primary"
+              style={{ fontSize: 'var(--text-xs)', padding: '6px 14px' }}
+            >
+              📄 Download PDF (.pdf)
+            </a>
+            <a
+              href={getFileDownloadUrl(result.run_id, '08_Reports/executive_summary.docx', true)}
+              download="executive_summary.docx"
+              className="btn btn-primary"
+              style={{ fontSize: 'var(--text-xs)', padding: '6px 14px' }}
+            >
+              📝 Download Word (.docx)
+            </a>
+            <a
+              href={getFileDownloadUrl(result.run_id, '08_Reports/executive_summary.md', true)}
+              download="executive_summary.md"
+              className="btn btn-ghost"
+              style={{ fontSize: 'var(--text-xs)', padding: '6px 14px' }}
+            >
+              📋 Download Markdown (.md)
+            </a>
+          </div>
         </div>
       </div>
 

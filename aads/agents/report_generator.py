@@ -13,6 +13,10 @@ from aads.core.logging import get_logger
 from aads.core.llm import get_llm
 from aads.core.schemas import ArtifactType, DecisionRecord
 from aads.core.state import RunState
+from aads.tools.reporting.export_formats import (
+    export_markdown_to_docx,
+    export_markdown_to_pdf,
+)
 from aads.tools.reporting.report_builder import (
     build_executive_summary_md,
     build_project_readme_md,
@@ -121,8 +125,31 @@ class ReportGeneratorAgent:
                 self.artifact_manager.register_artifact(
                     artifact_type=ArtifactType.REPORT,
                     path=summary_path,
-                    description="Executive summary and comprehensive project conclusions",
+                    description="Executive summary and comprehensive project conclusions (Markdown)",
                 )
+
+                # Generate and register DOCX and PDF versions
+                docx_path = rep_dir / "executive_summary.docx"
+                try:
+                    export_markdown_to_docx(summary_md, docx_path)
+                    self.artifact_manager.register_artifact(
+                        artifact_type=ArtifactType.REPORT,
+                        path=docx_path,
+                        description="Executive summary formatted Microsoft Word document (.docx)",
+                    )
+                except Exception as e_docx:
+                    logger.warning("docx_export_failed", error=str(e_docx))
+
+                pdf_path = rep_dir / "executive_summary.pdf"
+                try:
+                    export_markdown_to_pdf(summary_md, pdf_path, title=f"AUDAS Executive Summary — {state.user_objective}")
+                    self.artifact_manager.register_artifact(
+                        artifact_type=ArtifactType.REPORT,
+                        path=pdf_path,
+                        description="Executive summary publication-ready PDF document (.pdf)",
+                    )
+                except Exception as e_pdf:
+                    logger.warning("pdf_export_failed", error=str(e_pdf))
 
                 # Write README at run root
                 if self.artifact_manager.current_run_dir:

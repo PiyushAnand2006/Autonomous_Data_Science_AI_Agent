@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Card } from '../components/Card';
 import { listVisualizations, getFileDownloadUrl, API_BASE } from '../api';
 
@@ -14,6 +15,18 @@ export function Visualizations({ result }) {
     }
   }, [result]);
 
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setSelectedImg(null);
+      }
+    };
+    if (selectedImg) {
+      window.addEventListener('keydown', handleKeyDown);
+    }
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedImg]);
+
   const loadVisualizations = async (runId) => {
     setLoading(true);
     try {
@@ -26,11 +39,18 @@ export function Visualizations({ result }) {
     }
   };
 
-  const getFullImgUrl = (img) => {
+  const getFullImgUrl = (img, isDownload = false) => {
     if (!img) return '';
-    if (img.url && img.url.startsWith('http')) return img.url;
-    if (img.path) return getFileDownloadUrl(result.run_id, img.path);
-    if (img.url) return `${API_BASE}${img.url}`;
+    if (img.url && img.url.startsWith('http')) {
+      const sep = img.url.includes('?') ? '&' : '?';
+      return isDownload ? `${img.url}${sep}download=true` : `${img.url}${sep}download=false`;
+    }
+    if (img.path) return getFileDownloadUrl(result.run_id, img.path, isDownload);
+    if (img.url) {
+      const sep = img.url.includes('?') ? '&' : '?';
+      const base = `${API_BASE}${img.url}`;
+      return isDownload ? `${base}${sep}download=true` : `${base}${sep}download=false`;
+    }
     return '';
   };
 
@@ -117,7 +137,7 @@ export function Visualizations({ result }) {
                   flexDirection: 'column',
                   background: 'var(--surface-2)',
                   cursor: 'pointer',
-                  transition: 'transform var(--duration-fast), border-color var(--duration-fast)',
+                  transition: 'transform 0.2s var(--ease-spring), border-color 0.2s var(--ease-out-expo)',
                 }}
                 onClick={() => setSelectedImg(img)}
               >
@@ -152,7 +172,7 @@ export function Visualizations({ result }) {
                   <div style={{ fontSize: 'var(--text-xs)', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
                     <span style={{ color: 'var(--accent-indigo)', fontWeight: 600 }}>[{img.category}]</span> {img.name}
                   </div>
-                  <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>🔍 Click to zoom</span>
+                  <span style={{ fontSize: 'var(--text-xs)', color: '#d8b4fe', fontWeight: 600 }}>🔍 Click to view full image</span>
                 </div>
               </Card>
             );
@@ -166,52 +186,57 @@ export function Visualizations({ result }) {
         </Card>
       )}
 
-      {/* Lightbox Fullscreen Modal */}
-      {selectedImg && (
+      {/* Lightbox Fullscreen Modal via React Portal */}
+      {selectedImg && createPortal(
         <div
+          className="lightbox-overlay"
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0, 0, 0, 0.85)',
-            backdropFilter: 'blur(8px)',
-            zIndex: 9999,
+            background: 'rgba(3, 1, 10, 0.88)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            zIndex: 999999,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             padding: '24px',
+            animation: 'lightboxFadeIn 0.25s ease-out forwards',
           }}
           onClick={() => setSelectedImg(null)}
         >
           <div
+            className="lightbox-content"
             style={{
-              maxWidth: '90vw',
-              maxHeight: '90vh',
+              maxWidth: '92vw',
+              maxHeight: '92vh',
               background: 'var(--surface-2)',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 'var(--radius-lg)',
-              padding: '16px',
+              border: '1px solid var(--border-medium)',
+              borderRadius: 'var(--radius-xl)',
+              padding: '20px',
               display: 'flex',
               flexDirection: 'column',
-              boxShadow: 'var(--shadow-lg)',
+              boxShadow: '0 24px 60px rgba(0, 0, 0, 0.85), 0 0 30px rgba(147, 51, 234, 0.3)',
+              animation: 'lightboxZoomIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <div style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>
-                [{selectedImg.category}] {selectedImg.name}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <div style={{ fontWeight: 700, fontSize: 'var(--text-md)', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>
+                <span style={{ color: 'var(--accent-indigo)' }}>[{selectedImg.category}]</span> {selectedImg.name}
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <a
-                  href={getFullImgUrl(selectedImg)}
+                  href={getFullImgUrl(selectedImg, true)}
                   download={selectedImg.name}
-                  className="btn btn-ghost"
-                  style={{ fontSize: 'var(--text-xs)', padding: '4px 10px' }}
+                  className="btn btn-primary"
+                  style={{ fontSize: 'var(--text-xs)', padding: '6px 14px' }}
                 >
-                  📥 Download
+                  📥 Download High-Res PNG
                 </a>
                 <button
                   className="btn btn-ghost"
-                  style={{ fontSize: 'var(--text-xs)', padding: '4px 10px' }}
+                  style={{ fontSize: 'var(--text-xs)', padding: '6px 14px' }}
                   onClick={() => setSelectedImg(null)}
                 >
                   ✕ Close
@@ -219,15 +244,16 @@ export function Visualizations({ result }) {
               </div>
             </div>
 
-            <div style={{ background: '#ffffff', borderRadius: 'var(--radius-md)', padding: '12px', overflow: 'auto', textAlign: 'center' }}>
+            <div style={{ background: '#ffffff', borderRadius: 'var(--radius-md)', padding: '16px', overflow: 'auto', textAlign: 'center', boxShadow: 'inset 0 0 10px rgba(0,0,0,0.05)' }}>
               <img
                 src={getFullImgUrl(selectedImg)}
                 alt={selectedImg.name}
-                style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain' }}
+                style={{ maxWidth: '100%', maxHeight: '74vh', objectFit: 'contain', display: 'inline-block' }}
               />
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

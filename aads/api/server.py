@@ -683,7 +683,7 @@ def list_pipeline_files(run_id: str):
         "05_Notebook": "Self-contained, reproducible Jupyter Notebook",
         "06_Models": "Top serialized model artifacts (.pkl) and metadata",
         "07_Visualizations": "High-resolution EDA and model diagnostic plots",
-        "08_Reports": "Executive business insights markdown and JSON summaries",
+        "08_Reports": "Executive business insights in PDF, Word (DOCX), Markdown & JSON",
         "09_Experiments": "Complete benchmark log of all evaluated algorithms",
         "10_Metadata": "Full agent execution state and dataset metadata",
     }
@@ -709,12 +709,33 @@ def list_pipeline_files(run_id: str):
 
 
 @app.get("/api/pipeline/{run_id}/files/{file_path:path}")
-def download_pipeline_file(run_id: str, file_path: str, download: bool = False):
+def download_pipeline_file(run_id: str, file_path: str, download: bool = True):
     run_dir = _find_run_dir(run_id)
     if not run_dir or not run_dir.exists():
         raise HTTPException(status_code=404, detail=f"Run directory for {run_id} not found")
 
     full_path = run_dir / file_path
+    
+    # On-demand generation for .pdf and .docx if .md exists
+    if not full_path.exists():
+        file_name = Path(file_path).name.lower()
+        if file_name in ["executive_summary.pdf", "executive_summary.docx"]:
+            md_path = run_dir / "08_Reports" / "executive_summary.md"
+            if not md_path.exists():
+                matched_md = list(run_dir.rglob("executive_summary.md"))
+                if matched_md:
+                    md_path = matched_md[0]
+            if md_path.exists():
+                from aads.tools.reporting.export_formats import export_markdown_to_docx, export_markdown_to_pdf
+                target_out = (run_dir / "08_Reports" / file_name)
+                target_out.parent.mkdir(parents=True, exist_ok=True)
+                md_text = md_path.read_text(encoding="utf-8")
+                if file_name.endswith(".pdf"):
+                    export_markdown_to_pdf(md_text, target_out)
+                else:
+                    export_markdown_to_docx(md_text, target_out)
+                full_path = target_out
+
     if not full_path.exists() or not full_path.is_file():
         # Try matching by filename inside subdirectories
         matched_candidates = list(run_dir.rglob(Path(file_path).name))
@@ -733,13 +754,20 @@ def download_pipeline_file(run_id: str, file_path: str, download: bool = False):
         ".json": "application/json",
         ".csv": "text/csv",
         ".md": "text/markdown",
+        ".pdf": "application/pdf",
+        ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         ".ipynb": "application/json",
         ".pkl": "application/octet-stream",
     }
     media_type = media_types.get(suffix, "application/octet-stream")
 
     if download:
-        return FileResponse(full_path, media_type=media_type, filename=full_path.name)
+        return FileResponse(
+            full_path,
+            media_type=media_type,
+            filename=full_path.name,
+            headers={"Content-Disposition": f'attachment; filename="{full_path.name}"'}
+        )
     return FileResponse(full_path, media_type=media_type)
 
 
@@ -836,31 +864,6 @@ def download_ranked_model(run_id: str, rank: int):
     )
 
 
-# ──────────────────────────────────────────────────────────────────────────────
-# Endpoints: Pipeline — Visualizations (image list)
-# ──────────────────────────────────────────────────────────────────────────────
-@app.get("/api/pipeline/{run_id}/visualizations")
-def list_visualizations(run_id: str):
-    if run_id not in _runs:
-        raise HTTPException(status_code=404, detail=f"Run {run_id} not found")
-    result = _runs[run_id].get("result")
-    if not result or not result.get("run_dir"):
-        return {"images": []}
-
-    viz_dir = Path(result["run_dir"]) / "07_Visualizations"
-    if not viz_dir.exists():
-        return {"images": []}
-
-    images = []
-    for img in sorted(viz_dir.rglob("*.png")):
-        rel = img.relative_to(Path(result["run_dir"]))
-        images.append({
-            "path": str(rel),
-            "name": img.name,
-            "category": img.parent.name,
-            "url": f"/api/pipeline/{run_id}/files/{rel}",
-        })
-    return {"images": images}
 
 
 # ──────────────────────────────────────────────────────────────────────────────

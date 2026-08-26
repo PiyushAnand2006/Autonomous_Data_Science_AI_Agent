@@ -302,6 +302,23 @@ class GoalPlannerAgent:
             if not found and all_cols:
                 plan_obj.target_column = profile.target_candidates[0] if profile.target_candidates else all_cols[-1]
 
+        # Double check target column profile to guarantee task_type consistency (regression vs classification)
+        if plan_obj.target_column and plan_obj.task_type not in (TaskType.CLUSTERING, TaskType.ANOMALY, TaskType.DESCRIPTIVE):
+            target_meta = next((c for c in profile.columns if c.name == plan_obj.target_column), None)
+            if target_meta:
+                is_float = "float" in target_meta.dtype.lower()
+                is_num = target_meta.dtype.lower() in ("float64", "float32", "float", "int64", "int32", "int", "numeric")
+                unique_cnt = target_meta.unique_count
+                if is_float or (is_num and (unique_cnt > 20 or (profile.n_rows > 50 and unique_cnt / profile.n_rows > 0.05 and unique_cnt > 10))):
+                    if plan_obj.task_type != TaskType.REGRESSION:
+                        logger.info("planner_auto_corrected_task_to_regression", target=plan_obj.target_column, unique_values=unique_cnt, dtype=target_meta.dtype)
+                        plan_obj.task_type = TaskType.REGRESSION
+                        if not plan_obj.metric or plan_obj.metric in ["accuracy", "f1", "roc_auc", "precision", "recall"]:
+                            plan_obj.metric = "r2"
+                elif unique_cnt <= 20 and not is_float:
+                    if plan_obj.task_type not in (TaskType.CLASSIFICATION, TaskType.CLUSTERING):
+                        plan_obj.task_type = TaskType.CLASSIFICATION
+
         # Update state with plan
         state.task_type = plan_obj.task_type
         if plan_obj.target_column:

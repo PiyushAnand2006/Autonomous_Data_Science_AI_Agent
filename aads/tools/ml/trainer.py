@@ -435,13 +435,27 @@ def train_and_evaluate_model(
             if is_str_target:
                 le = LabelEncoder()
                 y_tr_fit = le.fit_transform(y_tr)
-                y_val_fit = le.transform(y_val) if y_val is not None and len(y_val) > 0 else y_val
+                if y_val is not None and len(y_val) > 0:
+                    try:
+                        y_val_fit = le.transform(y_val)
+                    except ValueError:
+                        # Fallback for rare unseen classes in holdout set
+                        all_classes = list(pd.Series(list(y_tr) + list(y_val)).dropna().unique())
+                        le.fit(all_classes)
+                        y_tr_fit = le.transform(y_tr)
+                        y_val_fit = le.transform(y_val)
+                else:
+                    y_val_fit = y_val
             else:
                 y_tr_fit = y_tr
                 y_val_fit = y_val
         else:
             y_tr_fit = y_tr
             y_val_fit = y_val
+
+        # Guard against n_neighbors > n_samples_fit in KNeighbors models
+        if hasattr(model, "n_neighbors") and len(X_tr) > 0:
+            model.n_neighbors = min(model.n_neighbors, max(1, len(X_tr)))
 
         model.fit(X_tr, y_tr_fit)
         training_time = round(time.perf_counter() - start_time, 4)
