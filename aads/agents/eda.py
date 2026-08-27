@@ -55,12 +55,49 @@ class EDAAgent:
         logger.info("eda_agent_start", run_id=state.run_id, target=state.target_column)
 
         # 1. Classify columns
-        num_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c]) and not pd.api.types.is_bool_dtype(df[c])]
-        cat_cols = [c for c in df.columns if not pd.api.types.is_numeric_dtype(df[c]) and not pd.api.types.is_datetime64_any_dtype(df[c])]
+        num_cols_all = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c]) and not pd.api.types.is_bool_dtype(df[c])]
+        cat_cols_all = [c for c in df.columns if not pd.api.types.is_numeric_dtype(df[c]) and not pd.api.types.is_datetime64_any_dtype(df[c])]
+
+        # 2. Rank & cap to top-K most important features to reduce RAM
+        MAX_NUM_CHARTS = 8
+        MAX_CAT_CHARTS = 6
+
+        # Rank numeric columns by absolute correlation with target (most relevant first)
+        if state.target_column and state.target_column in num_cols_all and len(num_cols_all) > 1:
+            try:
+                corr_with_target = (
+                    df[num_cols_all]
+                    .corr()[state.target_column]
+                    .drop(state.target_column, errors="ignore")
+                    .abs()
+                    .sort_values(ascending=False)
+                )
+                num_cols = list(corr_with_target.index[:MAX_NUM_CHARTS])
+                # Ensure the target itself is always included for distribution plots
+                if state.target_column not in num_cols:
+                    num_cols = [state.target_column] + num_cols[:MAX_NUM_CHARTS - 1]
+            except Exception:
+                num_cols = num_cols_all[:MAX_NUM_CHARTS]
+        else:
+            num_cols = num_cols_all[:MAX_NUM_CHARTS]
+
+        # Rank categorical columns by variance (nunique) — skip near-unique ID-like cols
+        total_rows = len(df)
+        cat_cols_filtered = [
+            c for c in cat_cols_all
+            if c in df.columns and (total_rows == 0 or df[c].nunique() / total_rows <= 0.4)
+        ]
+        cat_cols = cat_cols_filtered[:MAX_CAT_CHARTS]
+
+        logger.info(
+            "eda_column_selection",
+            num_total=len(num_cols_all), num_selected=len(num_cols),
+            cat_total=len(cat_cols_all), cat_selected=len(cat_cols),
+        )
 
         generated_charts: list[str] = []
 
-        # 2. Render and register charts if artifact manager is available
+        # 3. Render and register charts if artifact manager is available
         if self.artifact_manager:
             try:
                 viz_dir = self.artifact_manager.get_path("visualizations")
@@ -120,9 +157,9 @@ class EDAAgent:
             except Exception as e:
                 logger.warning("eda_chart_generation_failed", error=str(e))
 
-        # 3. Formulate statistical findings
+        # 4. Formulate statistical findings (use ALL columns for insights, not just plotted ones)
         univariate_insights: list[str] = []
-        for col in num_cols:
+        for col in num_cols_all:
             non_null = df[col].dropna()
             if len(non_null) > 5 and non_null.std() > 0:
                 skew = float(non_null.skew())
@@ -130,23 +167,23 @@ class EDAAgent:
                     univariate_insights.append(f"Column '{col}' is heavily skewed (skewness: {skew:.2f}). Consider log or power transformation.")
 
         correlation_insights: list[str] = []
-        if len(num_cols) >= 2:
-            corr_mat = df[num_cols].corr().abs().fillna(0.0)
+        if len(num_cols_all) >= 2:
+            corr_mat = df[num_cols_all].corr().abs().fillna(0.0)
             corr_values = corr_mat.to_numpy(copy=True)
             np.fill_diagonal(corr_values, 0.0)
             high_corr_pairs = []
-            for i in range(len(num_cols)):
-                for j in range(i + 1, len(num_cols)):
+            for i in range(len(num_cols_all)):
+                for j in range(i + 1, len(num_cols_all)):
                     c_val = float(corr_values[i, j])
                     if c_val >= 0.75:
-                        high_corr_pairs.append((num_cols[i], num_cols[j], c_val))
+                        high_corr_pairs.append((num_cols_all[i], num_cols_all[j], c_val))
 
             for col1, col2, val in high_corr_pairs[:5]:
                 correlation_insights.append(f"Strong collinearity between '{col1}' and '{col2}' (r = {val:.2f}).")
 
         bivariate_insights: list[str] = []
-        if state.target_column and state.target_column in num_cols:
-            target_corrs = df[num_cols].corr()[state.target_column].drop(state.target_column).abs().sort_values(ascending=False)
+        if state.target_column and state.target_column in num_cols_all:
+            target_corrs = df[num_cols_all].corr()[state.target_column].drop(state.target_column).abs().sort_values(ascending=False)
             top_target_feats = target_corrs.head(3)
             for f_name, c_val in top_target_feats.items():
                 if not np.isnan(c_val):
@@ -154,7 +191,8 @@ class EDAAgent:
 
         summary = (
             f"EDA completed on {len(df)} rows and {len(df.columns)} columns "
-            f"({len(num_cols)} numeric, {len(cat_cols)} categorical). "
+            f"({len(num_cols_all)} numeric, {len(cat_cols_all)} categorical). "
+            f"Plotted top {len(num_cols)} numeric and {len(cat_cols)} categorical features. "
             f"Generated {len(generated_charts)} visualization artifacts."
         )
 

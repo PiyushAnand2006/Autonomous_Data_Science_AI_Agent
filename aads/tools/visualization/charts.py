@@ -28,6 +28,27 @@ def _clean_filename(name: str) -> str:
     return re.sub(r"[^\w\-]", "_", str(name)).strip("_")
 
 
+# ── ID / High-Cardinality Column Filter ──
+_ID_PATTERNS = re.compile(
+    r"(^id$|_id$|^uuid|^guid|_uuid|_guid|_hash|_key$|^index$|^row|^record|_code$)",
+    re.IGNORECASE,
+)
+
+
+def _is_id_column(series: pd.Series, col_name: str, total_rows: int) -> bool:
+    """Detect probable ID / high-cardinality columns that produce meaningless charts.
+
+    A column is considered an ID column if:
+      1. Its name matches common ID naming patterns, OR
+      2. More than 40% of its values are unique (high cardinality).
+    """
+    if _ID_PATTERNS.search(col_name):
+        return True
+    if total_rows > 0 and series.nunique() / total_rows > 0.4:
+        return True
+    return False
+
+
 def plot_distributions(
     df: pd.DataFrame,
     numeric_cols: list[str],
@@ -116,7 +137,13 @@ def plot_categorical(
 
     plot_df = df.sample(n=min(len(df), 20000), random_state=42) if len(df) > 20000 else df
 
-    cols_to_plot = cat_cols[:max_cols]
+    # Filter out ID / high-cardinality columns before plotting
+    total_rows = len(plot_df)
+    meaningful_cols = [
+        c for c in cat_cols
+        if c in plot_df.columns and not _is_id_column(plot_df[c], c, total_rows)
+    ]
+    cols_to_plot = meaningful_cols[:max_cols]
     for col in cols_to_plot:
         if col not in plot_df.columns:
             continue
