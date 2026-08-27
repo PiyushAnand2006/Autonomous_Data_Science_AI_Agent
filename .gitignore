@@ -67,6 +67,9 @@ coverage.xml
 *.tar.gz
 *.zip
 
+# ── Local run docs ──
+run.md
+
 # ── Frontend ──
 frontend/node_modules/
 frontend/dist/

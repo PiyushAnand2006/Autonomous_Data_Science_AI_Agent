@@ -280,7 +280,20 @@ if "{target_col}" in df_cleaned.columns:
         df_cleaned = df_cleaned.dropna(subset=["{target_col}"]).reset_index(drop=True)
         print(f"Target validation: removed {{target_nulls}} row(s) with missing target.")
 
-# 5. Save cleaned dataset explicitly as CSV
+# 5. Missing value baseline imputation (median for numeric, mode for categorical)
+for col in df_cleaned.columns:
+    if col == "{target_col}":
+        continue
+    if df_cleaned[col].isnull().sum() > 0:
+        if pd.api.types.is_numeric_dtype(df_cleaned[col]):
+            fill_val = df_cleaned[col].median()
+            df_cleaned[col] = df_cleaned[col].fillna(fill_val)
+        else:
+            mode_val = df_cleaned[col].mode()
+            fill_val = mode_val.iloc[0] if len(mode_val) > 0 else "Missing"
+            df_cleaned[col] = df_cleaned[col].fillna(fill_val)
+
+# 6. Save cleaned dataset explicitly as CSV
 df_cleaned.to_csv(CLEANED_DATA_PATH, index=False)
 print(f"Saved cleaned dataset to: {{CLEANED_DATA_PATH}} (Shape: {{df_cleaned.shape}})")
 """))
@@ -355,6 +368,13 @@ preprocessor = ColumnTransformer(transformers=transformers, remainder='drop')
 X_tr_base = preprocessor.fit_transform(X_train_fe)
 X_te_base = preprocessor.transform(X_test_fe)
 
+# Derive clean feature names from preprocessor
+try:
+    raw_names = list(preprocessor.get_feature_names_out())
+    encoded_feature_names = [n.replace('num__', '').replace('cat_oh__', '') for n in raw_names]
+except Exception:
+    encoded_feature_names = [f"feat_{i}" for i in range(X_tr_base.shape[1])]
+
 # Apply frequency encoding on high-cardinality columns
 if high_card_features:
     freq_maps = {col: X_train_fe[col].astype(str).value_counts(normalize=True).to_dict() for col in high_card_features}
@@ -362,6 +382,7 @@ if high_card_features:
     te_freq = np.column_stack([X_test_fe[c].astype(str).map(freq_maps[c]).fillna(0.0).values for c in high_card_features])
     X_train_encoded = np.hstack([X_tr_base, tr_freq])
     X_test_encoded = np.hstack([X_te_base, te_freq])
+    encoded_feature_names.extend([f"freq_{c}" for c in high_card_features])
 else:
     X_train_encoded = X_tr_base
     X_test_encoded = X_te_base
@@ -371,8 +392,8 @@ pipe_save_path = MODELS_DIR / "preprocessing_pipeline.pkl"
 with open(pipe_save_path, "wb") as f:
     pickle.dump(preprocessor, f)
 
-# Save ML-ready encoded dataset
-ml_ready_df = pd.DataFrame(X_train_encoded)
+# Save ML-ready encoded dataset with explicit column names
+ml_ready_df = pd.DataFrame(X_train_encoded, columns=encoded_feature_names)
 ml_ready_df.to_csv(ML_READY_DATA_PATH, index=False)
 print(f"Fitted preprocessing pipeline saved to: {pipe_save_path}")
 print(f"ML-Ready transformed features: {X_train_encoded.shape[1]} columns")
