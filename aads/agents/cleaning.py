@@ -52,6 +52,8 @@ class CleaningAgent:
             target_column=state.target_column,
             missing_drop_threshold=0.80,
             winsorize_outliers=True,
+            drop_columns=state.columns_to_drop,
+            drop_reasons=state.column_triage_reasons,
         )
 
         state.mark_phase_complete("cleaning")

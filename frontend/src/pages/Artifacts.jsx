@@ -10,6 +10,8 @@ export function Artifacts({ result }) {
   useEffect(() => {
     if (result && result.run_id) {
       loadFiles(result.run_id);
+    } else {
+      setFolders({});
     }
   }, [result]);
 

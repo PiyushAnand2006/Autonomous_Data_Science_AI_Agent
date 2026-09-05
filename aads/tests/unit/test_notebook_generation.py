@@ -82,3 +82,46 @@ class TestNotebookGenerationAndValidation:
         assert val_result.total_cells >= 6
         assert val_result.success is True
         assert len(val_result.errors) == 0
+
+    def test_notebook_handles_columns_to_drop(self, tmp_path):
+        mgr = ArtifactManager(storage_root=tmp_path)
+        mgr.initialize_run("nb_drop_test_run")
+        state = RunState.create(user_objective="Predict binary target", target_column="target")
+        state.task_type = TaskType.CLASSIFICATION
+        state.columns_to_drop = ["leaky_score", "patient_id"]
+        state.column_triage_reasons = {
+            "leaky_score": "Target leakage proxy",
+            "patient_id": "Row identifier",
+        }
+
+        # Create raw csv with leaky columns in 01_Raw_Data
+        raw_dir = mgr.get_path("raw_data")
+        dummy_df = pd.DataFrame({
+            "patient_id": range(50),
+            "leaky_score": [99 if y == 1 else 10 for y in [0, 1] * 25],
+            "feat1": np.random.randn(50),
+            "target": [0, 1] * 25,
+        })
+        dummy_csv = raw_dir / "original_dataset.csv"
+        dummy_df.to_csv(dummy_csv, index=False)
+
+        agent = NotebookGeneratorAgent(artifact_manager=mgr)
+        nb_dict = agent.run(
+            state=state,
+            best_model_name="LogisticRegression",
+            raw_data_filename="original_dataset.csv",
+        )
+
+        nb_dir = mgr.get_path("notebook")
+        val_result = validate_and_execute_notebook(nb_dir / "autonomous_analysis.ipynb", working_dir=nb_dir)
+        assert val_result.success is True
+        assert len(val_result.errors) == 0
+
+        # Verify cleaned dataset saved by notebook dropped the columns
+        cleaned_csv = mgr.get_path("cleaned_data") / "cleaned_dataset.csv"
+        cleaned_df = pd.read_csv(cleaned_csv)
+        assert "leaky_score" not in cleaned_df.columns
+        assert "patient_id" not in cleaned_df.columns
+        assert "feat1" in cleaned_df.columns
+        assert "target" in cleaned_df.columns
+

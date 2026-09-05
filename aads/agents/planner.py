@@ -66,6 +66,60 @@ def _extract_json_from_text(text: str) -> dict[str, Any]:
     return {}
 
 
+def _is_valid_autonomous_drop_candidate(
+    col: str,
+    target: Optional[str],
+    profile: DatasetProfile,
+    user_objective: str,
+) -> bool:
+    """Validate whether an LLM-suggested column drop is safe and justified.
+
+    Prevents LLM hallucinations from dropping predictive domain features (e.g. lab results,
+    glucose, biomarkers, sensor readings, financial metrics) under the mistaken belief
+    that strong predictors constitute 'diagnostic leakage'.
+    """
+    col_lower = col.lower().strip()
+    target_lower = target.lower().strip() if target else ""
+
+    # 1. Authoritative user drop instruction
+    drop_kw_pattern = rf"(?:drop|remove|exclude|omit|delete|ignore)[^.;\n]*?\b{re.escape(col_lower)}\b"
+    if re.search(drop_kw_pattern, user_objective.lower()):
+        return True
+
+    # 2. Suspected ID from profiler
+    if profile.suspected_id_columns and col in profile.suspected_id_columns:
+        return True
+
+    # 3. ID naming conventions
+    if re.search(r"(?:^|_)id$|^id(?:_|$)|uuid|guid|mrn|ssn|record_id|patient_id|cust_id|customer_id|row_id|index$", col_lower):
+        return True
+
+    col_meta = next((c for c in profile.columns if c.name == col), None) if profile.columns else None
+
+    # 4. Constant column
+    if col_meta and col_meta.unique_count <= 1:
+        return True
+
+    # 5. High-cardinality discrete identifier
+    if col_meta and profile.n_rows > 50:
+        if col_meta.unique_count / profile.n_rows > 0.95 and col_meta.dtype.lower() in ("object", "string", "int64", "int32", "int"):
+            return True
+
+    # 6. Direct target derivative / score proxy
+    if target_lower:
+        target_slug = re.sub(r"[^\w]", "", target_lower)
+        col_slug = re.sub(r"[^\w]", "", col_lower)
+        if (target_slug in col_slug and len(target_slug) > 3) or (col_slug in target_slug and len(col_slug) > 3):
+            if any(k in col_slug for k in ["score", "risk", "class", "target", "pred", "outcome", "result", "category", "prob", "label"]):
+                return True
+
+    # 7. Obvious post-outcome intervention or recommendation action
+    if any(k in col_lower for k in ["recommendation", "consultation", "prescription", "action_taken", "treatment_plan", "next_step"]):
+        return True
+
+    return False
+
+
 class GoalPlannerAgent:
     """Agent that translates natural-language objectives and data profiles into structured plans."""
 
@@ -134,20 +188,61 @@ class GoalPlannerAgent:
                 target = all_cols[-1]
 
         # Check target column profile to confirm classification vs regression
+        has_explicit_class_hint = any(w in obj_lower for w in ["classif", "churn", "predict category", "category", "spam", "survived", "fraud", "binary", "default"])
         if target and task_type not in (TaskType.CLUSTERING, TaskType.ANOMALY, TaskType.DESCRIPTIVE):
             target_meta = next((c for c in profile.columns if c.name == target), None)
             if target_meta:
                 is_num = target_meta.dtype.lower() in ("float64", "float32", "float", "int64", "int32", "int", "numeric")
                 is_float = "float" in target_meta.dtype.lower()
                 unique_cnt = target_meta.unique_count
-                if is_float or (is_num and unique_cnt > 20):
+                if not has_explicit_class_hint and (is_float or (is_num and unique_cnt > 20)):
                     task_type = TaskType.REGRESSION
-                else:
+                elif unique_cnt <= 20 or has_explicit_class_hint:
                     task_type = TaskType.CLASSIFICATION
             elif not any(w in obj_lower for w in ["regress", "price", "yield", "amount", "cost"]):
                 task_type = TaskType.CLASSIFICATION
 
-        # 3. Determine steps based on task type
+        # 3. Autonomous Cognitive Column Triage & User Drop Instruction Extraction
+        cols_to_drop: list[str] = []
+        triage_reasons: dict[str, str] = {}
+        guidelines: list[str] = []
+
+        # A) Extract explicit user drop instructions from Natural Language Goal
+        drop_patterns = [
+            r"(?:drop|remove|exclude|omit|delete|ignore)\s+(?:the\s+)?(?:column[s]?\s+)?([A-Za-z0-9_,\s]+?)(?:\.|\;|\n|$|\band\b)",
+        ]
+        for pat in drop_patterns:
+            for match in re.finditer(pat, user_objective, re.IGNORECASE):
+                raw_cols = match.group(1).split(",")
+                for rc in raw_cols:
+                    rc_clean = rc.strip().strip("'\"`")
+                    for col_name in all_cols:
+                        if rc_clean.lower() == col_name.lower() and col_name != target:
+                            if col_name not in cols_to_drop:
+                                cols_to_drop.append(col_name)
+                                triage_reasons[col_name] = f"Explicit user drop instruction in objective ('{rc_clean}')"
+                                guidelines.append(f"Drop user-specified column: {col_name}")
+
+        # B) Autonomous ID column triage: add all suspected_id_columns from profile
+        if profile.suspected_id_columns:
+            for id_col in profile.suspected_id_columns:
+                if id_col in all_cols and id_col != target and id_col not in cols_to_drop:
+                    cols_to_drop.append(id_col)
+                    triage_reasons[id_col] = "Suspected high-cardinality or row identifier"
+
+        # C) Autonomous Target Leakage triage:
+        if target:
+            target_slug = re.sub(r"[^\w]", "", target.lower())
+            for col in all_cols:
+                if col == target or col in cols_to_drop:
+                    continue
+                col_slug = re.sub(r"[^\w]", "", col.lower())
+                if (target_slug in col_slug and len(target_slug) > 3) or (col_slug in target_slug and len(col_slug) > 3):
+                    if any(k in col_slug for k in ["score", "risk", "class", "target", "pred", "outcome", "result", "category"]):
+                        cols_to_drop.append(col)
+                        triage_reasons[col] = f"Target leakage: column is a direct derivative/score of target '{target}'"
+
+        # 4. Determine steps based on task type
         if task_type == TaskType.DESCRIPTIVE:
             steps_list = [
                 PlanStep(step_id="profiling", description="Inspect dataset schema, missingness, and distributions"),
@@ -180,6 +275,9 @@ class GoalPlannerAgent:
             target_column=target,
             metric=metric,
             steps=steps_list,
+            columns_to_drop=cols_to_drop,
+            column_triage_reasons=triage_reasons,
+            user_guidelines=guidelines,
             reasoning=f"Heuristic plan formulated for objective: '{user_objective}'. Task inferred as {task_type.value}.",
             questions=["Please confirm the target column is correct."] if (not target_column and target) else [],
             notes=[f"Dataset has {profile.n_rows} rows and {profile.n_cols} columns."],
@@ -277,11 +375,47 @@ class GoalPlannerAgent:
                         if not resolved_target and all_cols:
                             resolved_target = profile.target_candidates[0] if profile.target_candidates else all_cols[-1]
 
+                        raw_drop_cols = parsed_json.get("columns_to_drop", [])
+                        llm_drop_cols = [c for c in raw_drop_cols if isinstance(c, str)]
+                        llm_triage_reasons = parsed_json.get("column_triage_reasons", {})
+                        if not isinstance(llm_triage_reasons, dict):
+                            llm_triage_reasons = {}
+                        llm_guidelines = parsed_json.get("user_guidelines", [])
+                        if not isinstance(llm_guidelines, list):
+                            llm_guidelines = []
+
+                        # Merge heuristic drops (regex user instructions + profile suspected IDs + target leakage)
+                        heuristic_plan = self.plan_heuristically(profile, user_objective, resolved_target)
+
+                        # Filter LLM suggested drops with autonomous validation safeguard
+                        valid_llm_drop_cols: list[str] = []
+                        for c in llm_drop_cols:
+                            if c in heuristic_plan.columns_to_drop:
+                                valid_llm_drop_cols.append(c)
+                            elif _is_valid_autonomous_drop_candidate(c, resolved_target, profile, user_objective):
+                                valid_llm_drop_cols.append(c)
+                            else:
+                                logger.info(
+                                    "planner_safeguard_rejected_llm_drop",
+                                    column=c,
+                                    reason="Feature is an independent predictive signal. Pruning without user instruction causes severe underfitting.",
+                                )
+
+                        merged_drop_cols = list(dict.fromkeys(valid_llm_drop_cols + heuristic_plan.columns_to_drop))
+                        merged_triage_reasons = {**heuristic_plan.column_triage_reasons, **llm_triage_reasons}
+                        merged_guidelines = list(dict.fromkeys(llm_guidelines + heuristic_plan.user_guidelines))
+
+                        # Validate merged drops against all_cols
+                        final_drop_cols = [c for c in merged_drop_cols if c in all_cols and c != resolved_target]
+
                         plan_obj = TaskPlan(
                             task_type=task_type,
                             target_column=resolved_target,
                             metric=parsed_json.get("metric"),
                             steps=validated_steps,
+                            columns_to_drop=final_drop_cols,
+                            column_triage_reasons={k: v for k, v in merged_triage_reasons.items() if k in final_drop_cols},
+                            user_guidelines=merged_guidelines,
                             reasoning=str(parsed_json.get("reasoning", "")),
                             questions=parsed_json.get("questions", []) if isinstance(parsed_json.get("questions"), list) else [],
                             notes=parsed_json.get("notes", []) if isinstance(parsed_json.get("notes"), list) else [],
@@ -324,19 +458,26 @@ class GoalPlannerAgent:
         if plan_obj.target_column:
             state.target_column = plan_obj.target_column
         state.task_plan = [s.step_id for s in plan_obj.steps]
+        state.columns_to_drop = list(plan_obj.columns_to_drop)
+        state.column_triage_reasons = dict(plan_obj.column_triage_reasons)
+        state.user_guidelines = list(plan_obj.user_guidelines)
         state.mark_phase_complete("planning")
 
+        triage_summary = f" Flagged {len(plan_obj.columns_to_drop)} column(s) to drop ({', '.join(plan_obj.columns_to_drop[:5])})." if plan_obj.columns_to_drop else ""
         state.add_decision(
             DecisionRecord(
                 agent="planner",
                 action="formulate_plan",
-                reason=f"Formulated {plan_obj.task_type.value} plan with {len(plan_obj.steps)} steps. Target: {plan_obj.target_column}.",
+                reason=f"Formulated {plan_obj.task_type.value} plan with {len(plan_obj.steps)} steps. Target: {plan_obj.target_column}.{triage_summary}",
                 approval_mode=state.autonomy_mode,
                 details={
                     "task_type": plan_obj.task_type.value,
                     "target_column": plan_obj.target_column,
                     "metric": plan_obj.metric,
                     "steps": state.task_plan,
+                    "columns_to_drop": plan_obj.columns_to_drop,
+                    "column_triage_reasons": plan_obj.column_triage_reasons,
+                    "user_guidelines": plan_obj.user_guidelines,
                 },
             )
         )

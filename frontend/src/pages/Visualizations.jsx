@@ -12,6 +12,9 @@ export function Visualizations({ result }) {
   useEffect(() => {
     if (result && result.run_id) {
       loadVisualizations(result.run_id);
+    } else {
+      setImages([]);
+      setSelectedImg(null);
     }
   }, [result]);
 

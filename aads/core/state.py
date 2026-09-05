@@ -70,6 +70,18 @@ class RunState(BaseModel):
         default_factory=list,
         description="Ordered list of planned workflow steps",
     )
+    columns_to_drop: list[str] = Field(
+        default_factory=list,
+        description="Columns to drop due to user instructions, IDs, or autonomous triage",
+    )
+    column_triage_reasons: dict[str, str] = Field(
+        default_factory=dict,
+        description="Explicit justifications for each dropped column",
+    )
+    user_guidelines: list[str] = Field(
+        default_factory=list,
+        description="User-specified constraints and domain directives extracted from objective",
+    )
 
     # ── Dataset ───────────────────────────────────────────────────────────
     dataset_meta: Optional[DatasetMeta] = Field(

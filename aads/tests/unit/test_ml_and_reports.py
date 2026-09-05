@@ -139,3 +139,22 @@ class TestMLExperimentation:
         assert "report_generation" in state.completed_phases
         assert (mgr.get_path("reports") / "executive_summary.md").exists()
         assert (mgr.current_run_dir / "README.md").exists()
+
+    def test_feature_engineering_biomarker_safeguard(self):
+        from aads.agents.feature_engineering import FeatureEngineeringAgent
+
+        state = RunState(user_objective="Predict diabetes risk")
+        agent = FeatureEngineeringAgent()
+
+        X_tr = pd.DataFrame({"Blood_Glucose": [100, 120, 150], "HbA1c": [5.4, 6.1, 7.2], "Constant_Col": [1, 1, 1]})
+        X_te = X_tr.copy()
+
+        # Mock AI returning attempt to drop biomarkers and constant column
+        agent._consult_ai_feature_engineering = lambda *args, **kwargs: (["Blood_Glucose", "HbA1c", "Constant_Col"], [])
+
+        X_tr_fe, X_te_fe, _, log = agent.run(X_tr, X_te, None, state)
+        assert "Blood_Glucose" in X_tr_fe.columns, "Blood_Glucose must NOT be dropped!"
+        assert "HbA1c" in X_tr_fe.columns, "HbA1c must NOT be dropped!"
+        assert "Constant_Col" not in X_tr_fe.columns, "Constant_Col should be dropped because nunique() <= 1"
+        assert "Constant_Col" in log["dropped_features"]
+

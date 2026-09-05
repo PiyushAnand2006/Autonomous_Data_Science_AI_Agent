@@ -78,6 +78,11 @@ DEFAULT_PROVIDER_MODELS: dict[str, list[str]] = {
         "qwen2.5",
         "phi3",
     ],
+    "groq": [
+        "llama-3.3-70b-versatile",
+        "llama-3.1-8b-instant",
+        "mixtral-8x7b-32768",
+    ],
     "custom": [
         "custom-model",
     ],

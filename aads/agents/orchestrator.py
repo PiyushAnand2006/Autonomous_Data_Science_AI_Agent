@@ -179,9 +179,11 @@ class AADSOrchestrator:
         X_train, X_val, X_test, y_train, y_val, y_test = split_mgr.run(df=cleaned_df, state=state)
 
         # 10. Agent: Leakage Guard
-        _notify("⬡ [LEAKAGE GUARD] Verifying strict data leakage guards across splits...")
+        _notify("⬡ [LEAKAGE GUARD] Verifying strict data leakage guards and pruning leaky proxies...")
         leakage_guard = LeakageGuard(config=self.config, artifact_manager=artifact_mgr)
-        leakage_guard.run(X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test, state=state)
+        X_train, X_test, X_val, leakage_report = leakage_guard.run(
+            X_train=X_train, X_test=X_test, y_train=y_train, y_test=y_test, state=state, X_val=X_val
+        )
 
         # 11. Agent: Feature Engineering
         if self.config.execution_mode == "ai":

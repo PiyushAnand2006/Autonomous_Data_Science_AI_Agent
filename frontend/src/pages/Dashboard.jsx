@@ -18,12 +18,13 @@ export function Dashboard({ settings, setSettings, onOpenSettings, currentResult
   const activeStreamCloseRef = useRef(null);
 
   useEffect(() => {
-    if (!currentResult) {
+    if (!currentResult && !isRunning) {
       setStatus('idle');
       setLogs([]);
       setError(null);
+      setRunId(null);
     }
-  }, [currentResult]);
+  }, [currentResult, isRunning]);
 
   useEffect(() => {
     return () => {
@@ -98,6 +99,11 @@ export function Dashboard({ settings, setSettings, onOpenSettings, currentResult
       return;
     }
 
+    // Immediately clear previous run result so old results are never displayed while new pipeline is running
+    if (setCurrentResult) {
+      setCurrentResult(null);
+    }
+    setRunId(null);
     setIsRunning(true);
     setLogs(['🚀 Initializing autonomous pipeline run...']);
     setStatus('running');
@@ -369,8 +375,8 @@ export function Dashboard({ settings, setSettings, onOpenSettings, currentResult
         </div>
       )}
 
-      {/* Top Level Run Summary if result exists */}
-      {currentResult && (
+      {/* Top Level Run Summary if result exists and pipeline is not actively running */}
+      {currentResult && !isRunning && (
         <div style={{ marginTop: '40px' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
             <div>

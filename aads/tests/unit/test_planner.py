@@ -136,3 +136,54 @@ class TestLLMPlanning:
         assert "hack_the_system" not in step_ids
         assert "profiling" in step_ids
         assert "eda" in step_ids
+
+    def test_extracts_user_drop_instruction_from_natural_language_goal(self, sample_profile):
+        agent = GoalPlannerAgent()
+        plan = agent.plan_heuristically(
+            sample_profile,
+            user_objective="Predict house prices. Drop the column feature_1.",
+            target_column="target_price",
+        )
+        assert "feature_1" in plan.columns_to_drop
+        assert any("user drop instruction" in r for r in plan.column_triage_reasons.values())
+
+    def test_autonomous_triage_without_user_drop_instruction(self, sample_profile):
+        # sample_profile has suspected_id_columns: ['id']
+        agent = GoalPlannerAgent()
+        plan = agent.plan_heuristically(
+            sample_profile,
+            user_objective="Analyze customer dataset and predict target_price without mentioning any columns to drop",
+            target_column="target_price",
+        )
+        # Even though user gave zero drop instructions, ID column 'id' is autonomously triaged
+        assert "id" in plan.columns_to_drop
+        assert "id" in plan.column_triage_reasons
+
+    def test_planner_safeguard_rejects_llm_drop_of_predictive_features(self, sample_profile):
+        mock_llm = MagicMock()
+        mock_response = MagicMock()
+        mock_response.content = """{
+  "task_type": "regression",
+  "target_column": "target_price",
+  "columns_to_drop": ["feature_1", "id", "non_existent_col"],
+  "column_triage_reasons": {
+    "feature_1": "Hallucinated drop of genuine continuous predictive feature"
+  },
+  "steps": [
+    {"step_id": "profiling"},
+    {"step_id": "data_quality"}
+  ]
+}"""
+        mock_llm.invoke.return_value = mock_response
+
+        agent = GoalPlannerAgent(llm=mock_llm)
+        state = RunState.create(user_objective="Predict target_price from features")
+
+        plan = agent.plan(sample_profile, state)
+
+        # 'id' is a legitimate suspected ID column and should be dropped
+        assert "id" in plan.columns_to_drop
+        # 'feature_1' is an independent continuous predictive feature, NOT requested by user,
+        # so LLM hallucinated drop MUST be rejected by the safeguard!
+        assert "feature_1" not in plan.columns_to_drop
+

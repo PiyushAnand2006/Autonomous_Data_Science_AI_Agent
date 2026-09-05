@@ -246,8 +246,25 @@ if target_col_name in df_raw.columns:
     # Section 6: Data Cleaning & Hygiene
     # ──────────────────────────────────────────────────────────────────────────
     cells.append(_make_markdown_cell("## 5. Data Cleaning and Sanitization"))
-    cells.append(_make_code_cell(f"""df_cleaned = df_raw.copy()
+    cols_to_drop_list = list(state.columns_to_drop) if state.columns_to_drop else []
+    triage_reasons_dict = state.column_triage_reasons or {}
+    drop_section_code = ""
+    if cols_to_drop_list:
+        drop_section_code = f"""
+# 0. Drop target leakage, row identifiers, and post-outcome consequence columns identified during triage
+columns_to_drop = {repr(cols_to_drop_list)}
+triage_reasons = {repr(triage_reasons_dict)}
+existing_drop_cols = [c for c in columns_to_drop if c in df_cleaned.columns]
+if existing_drop_cols:
+    print(f"Dropping {{len(existing_drop_cols)}} leaky / identifier / non-feature column(s): {{existing_drop_cols}}")
+    for col in existing_drop_cols:
+        reason = triage_reasons.get(col, "Identified during data cleaning / leakage audit")
+        print(f"  - {{col}}: {{reason}}")
+    df_cleaned = df_cleaned.drop(columns=existing_drop_cols)
+"""
 
+    cells.append(_make_code_cell(f"""df_cleaned = df_raw.copy()
+{drop_section_code}
 # 1. Standardize placeholder missing values (e.g. '?', 'na', 'null')
 hidden_null_tokens = ["?", "na", "n/a", "null", "none", "", "nan", "NaN"]
 for col in df_cleaned.select_dtypes(include='object').columns:
@@ -326,8 +343,9 @@ print(f"Holdout test split: {{X_test.shape[0]}} rows, {{X_test.shape[1]}} featur
     cells.append(_make_code_cell(f"""X_train_fe = X_train.copy()
 X_test_fe = X_test.copy()
 
-# Generate domain interactions for numeric features
+# Generate domain interactions for numeric features (excluding ID-like columns)
 train_num_cols = list(X_train_fe.select_dtypes(include=['int64', 'float64']).columns)
+train_num_cols = [c for c in train_num_cols if not any(x in c.lower() for x in ['id', 'uuid', 'key', 'index', 'record'])]
 
 if len(train_num_cols) >= 2:
     col_a, col_b = train_num_cols[0], train_num_cols[1]
@@ -361,7 +379,7 @@ if numeric_features:
 if low_card_features:
     transformers.append(('cat_oh', Pipeline([
         ('imputer', SimpleImputer(strategy='constant', fill_value='missing')),
-        ('encoder', OneHotEncoder(handle_unknown='ignore', sparse_output=False))
+        ('encoder', OneHotEncoder(handle_unknown='ignore', sparse_output=False, min_frequency=0.01))
     ]), low_card_features))
 
 preprocessor = ColumnTransformer(transformers=transformers, remainder='drop')

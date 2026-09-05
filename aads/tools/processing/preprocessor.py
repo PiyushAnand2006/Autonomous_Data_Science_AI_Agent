@@ -98,7 +98,7 @@ class AdaptivePreprocessor(BaseEstimator, TransformerMixin):
         if self.low_card_cols:
             self.low_card_imputer_ = SimpleImputer(strategy="constant", fill_value="missing")
             cat_data = self.low_card_imputer_.fit_transform(X_df[self.low_card_cols])
-            self.onehot_ = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
+            self.onehot_ = OneHotEncoder(handle_unknown="ignore", sparse_output=False, min_frequency=0.01)
             self.onehot_.fit(cat_data)
             try:
                 oh_names = list(self.onehot_.get_feature_names_out(self.low_card_cols))

@@ -53,26 +53,29 @@ class FeatureEngineeringAgent:
 
         try:
             col_info = []
-            for col in list(X_train.columns)[:35]:
+            for col in list(X_train.columns):
                 nunique = X_train[col].nunique(dropna=False)
                 dtype = str(X_train[col].dtype)
                 col_info.append(f"- {col} (dtype={dtype}, distinct={nunique})")
 
+            guidelines_str = "\n".join([f"- {g}" for g in state.user_guidelines]) if state.user_guidelines else "None"
+
             prompt = (
                 f"You are a World-Class Kaggle Grandmaster and Principal Data Scientist.\n"
-                f"Objective: {state.user_objective}\n"
+                f"User Objective & Instructions: {state.user_objective}\n"
+                f"User Constraints/Guidelines:\n{guidelines_str}\n"
                 f"Task Type: {state.task_type.value if state.task_type else 'classification'}\n"
                 f"Target Column: {state.target_column}\n\n"
-                f"Feature Columns:\n" + "\n".join(col_info) + "\n\n"
-                f"Your goal is to MAXIMIZE predictive accuracy and eliminate noise.\n"
+                f"Feature Columns in Current Dataset ({len(col_info)} features):\n" + "\n".join(col_info) + "\n\n"
+                f"Your goal is to MAXIMIZE real-world generalization accuracy by synthesizing high-leverage domain interaction features (ratios, products, differences).\n"
+                f"CRITICAL: Do NOT drop genuine predictive domain features, independent variables, raw measurements, or observed signals (e.g., financial indicators, user behavior, sensor data, clinical measurements, demographics, usage metrics). These are NOT target leakage — they are the essential input signals required for prediction! Dropping them causes severe underfitting!\n"
                 f"Return valid JSON ONLY with this exact structure:\n"
                 f"{{\n"
-                f'  "drop_features": ["list", "of", "useless", "or", "non_predictive_id_columns"],\n'
                 f'  "domain_interactions": [\n'
                 f'    {{"name": "interaction_col_name", "col1": "existing_col", "op": "/", "col2": "existing_col"}}\n'
                 f"  ]\n"
                 f"}}\n"
-                f"Note: For 'op', supported operators are '/', '*', '+', '-'. Only select numerical columns for domain_interactions."
+                f"Note: For 'op', supported operators are '/', '*', '+', '-'. Propose up to 6 high-value domain interactions between numerical columns."
             )
 
             response = llm_client.invoke(prompt)
@@ -169,9 +172,14 @@ class FeatureEngineeringAgent:
             except Exception as e:
                 logger.debug("ai_interaction_application_failed", error=str(e))
 
-        # 2. Apply AI Noise Pruning (Drop non-predictive features)
+        # 2. Apply AI Noise Pruning (Drop non-predictive features only if confirmed zero-variance or explicitly triaged)
         if ai_drops:
-            valid_drops = [c for c in ai_drops if c in X_train_fe.columns and len(X_train_fe.columns) > len(ai_drops) + 1]
+            # Strictly protect predictive domain features and biomarkers: only drop if confirmed constant or in state.columns_to_drop
+            valid_drops = [
+                c for c in ai_drops
+                if c in X_train_fe.columns
+                and (c in state.columns_to_drop or X_train_fe[c].nunique() <= 1)
+            ]
             if valid_drops:
                 X_train_fe.drop(columns=valid_drops, inplace=True, errors="ignore")
                 X_test_fe.drop(columns=valid_drops, inplace=True, errors="ignore")

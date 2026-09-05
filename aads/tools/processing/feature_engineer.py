@@ -46,7 +46,15 @@ def generate_candidate_features(
         "dropped_features": [],
     }
 
-    numeric_cols = [c for c in train_fe.columns if pd.api.types.is_numeric_dtype(train_fe[c]) and not pd.api.types.is_bool_dtype(train_fe[c])]
+    _ID_RE = re.compile(r"(^|_)(id|uuid|guid|key|index|identifier|pk|code|patient|cust|customer|user|account)($|_)", re.IGNORECASE)
+    n_rows = len(train_fe)
+    numeric_cols = [
+        c for c in train_fe.columns
+        if pd.api.types.is_numeric_dtype(train_fe[c])
+        and not pd.api.types.is_bool_dtype(train_fe[c])
+        and not _ID_RE.search(str(c))
+        and not (n_rows > 20 and train_fe[c].nunique() / n_rows > 0.95)
+    ]
 
     # 1. Log / Power transformations for highly skewed features
     for col in numeric_cols:

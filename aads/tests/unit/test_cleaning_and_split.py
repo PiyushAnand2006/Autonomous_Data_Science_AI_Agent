@@ -37,10 +37,11 @@ class TestCleaningTool:
         cleaned, log = clean_dataset(messy_df, target_column="target")
 
         assert "constant_col" not in cleaned.columns
+        assert "id" not in cleaned.columns
         assert cleaned["feature_1"].isna().sum() == 0
         assert cleaned["feature_2"].isna().sum() == 0
         assert "?" not in cleaned["feature_2"].values
-        assert len(log["dropped_columns"]) == 1
+        assert len(log["dropped_columns"]) >= 1
 
 
 class TestSplitterTool:
