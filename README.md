@@ -22,19 +22,15 @@
 
 ## 🎬 Video Walkthrough & Feature Demo
 
-<div align="center">
-
-[![AUDAS Demo Video - Click to Play](docs/demo/poster.jpg)](docs/demo/audas-demo.mp4)
-
-**🎥 Click the image above to watch the full 1080p demo video** *(or open [`docs/demo/audas-demo.mp4`](docs/demo/audas-demo.mp4))*
-
-</div>
+https://github.com/user-attachments/assets/19909ecb-c12d-4c46-b9bd-69c37d27e0df
 
 > 🎙️ **Full Product Demo Walkthrough (1m 38s / 1080p HD):** Complete autonomous machine learning lifecycle tour—profiling, data quality scoring, leakage protection, automated feature engineering, multi-algorithm candidate benchmarking, interactive EDA visuals, executive reports, and 10-folder project export. Local video copy: [`docs/demo/audas-demo.mp4`](docs/demo/audas-demo.mp4)
 
 ---
 
 ## 📌 Table of Contents
+
+
 - [🎬 Video Walkthrough & Feature Demo](#-video-walkthrough--feature-demo)
 - [✨ Key Features](#-key-features)
 - [🤖 Agentic Multi-Agent Architecture](#-agentic-multi-agent-architecture)
