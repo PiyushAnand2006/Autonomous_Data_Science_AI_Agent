@@ -5,6 +5,7 @@
 [![Vite App](https://img.shields.io/badge/🚀%20Live%20App-Vercel%20%7C%20React%2018-7928CA?style=for-the-badge&logo=vercel&logoColor=white)](https://autonomous-data-science-ai-agent.vercel.app/)
 [![FastAPI Backend](https://img.shields.io/badge/⚡%20API%20Backend-Render-46E3B7?style=for-the-badge&logo=render&logoColor=black)](https://audas-backend.onrender.com)
 [![Streamlit Demo](https://img.shields.io/badge/📊%20Classic%20Demo-Streamlit%20Cloud-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://autonomous-data-science-ai-agent.streamlit.app/)
+[![Demo Video](https://img.shields.io/badge/🎬%20Demo%20Video-1080p%20HD-E53E3E?style=for-the-badge&logo=youtube&logoColor=white)](#-video-walkthrough--feature-demo)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
@@ -13,13 +14,28 @@
 ### 🌟 **[Launch Live Web Application (Vercel)](https://autonomous-data-science-ai-agent.vercel.app/)**
 *✨ Deep Black & Radiant Royal Purple UI · Frontier Model Search · Real-Time Agentic Pipeline*
 
-🔗 **API Server (Render)**: [https://audas-backend.onrender.com](https://audas-backend.onrender.com) &nbsp;|&nbsp; 📊 **Streamlit Alternative**: [https://autonomous-data-science-ai-agent.streamlit.app/](https://autonomous-data-science-ai-agent.streamlit.app/)
+🔗 **API Server (Render)**: [https://audas-backend.onrender.com](https://audas-backend.onrender.com) &nbsp;|&nbsp; 📊 **Streamlit Alternative**: [https://autonomous-data-science-ai-agent.streamlit.app/](https://autonomous-data-science-ai-agent.streamlit.app/) &nbsp;|&nbsp; 🎬 **Product Demo Video**: [Watch Walkthrough](#-video-walkthrough--feature-demo)
 
 </div>
 
 ---
 
+## 🎬 Video Walkthrough & Feature Demo
+
+<div align="center">
+
+[![AUDAS Demo Video - Click to Play](docs/demo/poster.jpg)](docs/demo/audas-demo.mp4)
+
+**🎥 Click the image above to watch the full 1080p demo video** *(or open [`docs/demo/audas-demo.mp4`](docs/demo/audas-demo.mp4))*
+
+</div>
+
+> 🎙️ **Full Product Demo Walkthrough (1m 38s / 1080p HD):** Complete autonomous machine learning lifecycle tour—profiling, data quality scoring, leakage protection, automated feature engineering, multi-algorithm candidate benchmarking, interactive EDA visuals, executive reports, and 10-folder project export. Local video copy: [`docs/demo/audas-demo.mp4`](docs/demo/audas-demo.mp4)
+
+---
+
 ## 📌 Table of Contents
+- [🎬 Video Walkthrough & Feature Demo](#-video-walkthrough--feature-demo)
 - [✨ Key Features](#-key-features)
 - [🤖 Agentic Multi-Agent Architecture](#-agentic-multi-agent-architecture)
 - [🛠️ Tech Stack](#️-tech-stack)
