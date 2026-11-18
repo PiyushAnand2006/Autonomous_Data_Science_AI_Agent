@@ -4,6 +4,7 @@ AADS Notebook Generator Agent — produces clean, reproducible, end-to-end Jupyt
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any, Optional
@@ -84,10 +85,14 @@ class NotebookGeneratorAgent:
                     description=f"Professional reproducible Jupyter Notebook ({len(notebook_dict['cells'])} cells)",
                 )
 
-                # Programmatic top-to-bottom validation of generated notebook
+                # Programmatic top-to-bottom validation of generated notebook.
+                # The digest proves the executed content is exactly what this
+                # pipeline generated — the validator skips execution otherwise.
+                nb_sha256 = hashlib.sha256(Path(nb_path).read_bytes()).hexdigest()
                 validation_result = validate_and_execute_notebook(
                     notebook_path=nb_path,
                     working_dir=nb_dir,
+                    expected_sha256=nb_sha256,
                 )
 
                 val_path = nb_dir / "notebook_validation.json"

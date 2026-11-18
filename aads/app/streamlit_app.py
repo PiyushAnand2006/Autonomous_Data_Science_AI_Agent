@@ -12,6 +12,7 @@ import json
 import os
 import sys
 import tempfile
+import uuid
 import zipfile
 from pathlib import Path
 
@@ -25,6 +26,7 @@ import streamlit as st
 
 from aads.agents.orchestrator import AADSOrchestrator
 from aads.core.config import AADSConfig
+from aads.core.paths import ensure_within, sanitize_filename
 from aads.core.llm import DEFAULT_PROVIDER_MODELS, list_provider_models, test_llm_connection
 from aads.core.schemas import AutonomyMode, ExecutionEngine
 from aads.scripts.generate_sample_data import generate_churn_dataset
@@ -271,10 +273,12 @@ with tabs[0]:
             if uploaded_file:
                 temp_dir = Path("storage/temp_uploads")
                 temp_dir.mkdir(parents=True, exist_ok=True)
-                data_path = temp_dir / uploaded_file.name
+                original_name = sanitize_filename(uploaded_file.name)
+                # Server-generated name: no user text reaches the filesystem path
+                data_path = temp_dir / f"{uuid.uuid4().hex}{Path(original_name).suffix}"
                 with open(data_path, "wb") as f:
                     f.write(uploaded_file.getbuffer())
-                st.success(f"Uploaded: `{uploaded_file.name}`")
+                st.success(f"Uploaded: `{original_name}`")
         else:
             sample_type = st.selectbox("Sample Dataset", ["Customer Churn (Classification)"])
             sample_dir = Path("data")

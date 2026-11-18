@@ -6,6 +6,7 @@ in an isolated namespace to verify syntax, execution correctness, and reproducib
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 import time
 import traceback
@@ -22,12 +23,16 @@ logger = get_logger(__name__)
 def validate_and_execute_notebook(
     notebook_path: str | Path,
     working_dir: str | Path | None = None,
+    expected_sha256: str | None = None,
 ) -> NotebookValidationResult:
     """Execute all code cells of a Jupyter Notebook in sequence to validate execution.
 
     Args:
         notebook_path: Absolute or relative path to the .ipynb file.
         working_dir: Directory to set as cwd during execution (e.g. 05_Notebook/).
+        expected_sha256: When provided, the notebook file is executed only if its
+            SHA-256 digest matches — proving the content is still exactly what the
+            pipeline generated (no external modification since write time).
 
     Returns:
         NotebookValidationResult indicating success, executed cell count, duration, and errors.
@@ -41,6 +46,20 @@ def validate_and_execute_notebook(
             duration_seconds=0.0,
             errors=[f"Notebook file not found: {nb_path}"],
         )
+
+    if expected_sha256 is not None:
+        actual_sha256 = hashlib.sha256(nb_path.read_bytes()).hexdigest()
+        if actual_sha256 != expected_sha256:
+            return NotebookValidationResult(
+                success=False,
+                executed_cells=0,
+                total_cells=0,
+                duration_seconds=0.0,
+                errors=[
+                    "Notebook hash mismatch — file changed since generation "
+                    f"(expected {expected_sha256[:12]}, got {actual_sha256[:12]}); execution skipped."
+                ],
+            )
 
     try:
         data = json.loads(nb_path.read_text(encoding="utf-8"))

@@ -17,9 +17,13 @@ Usage:
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import os
+import re
+import socket
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import TYPE_CHECKING, Any, Optional
 
@@ -89,6 +93,43 @@ DEFAULT_PROVIDER_MODELS: dict[str, list[str]] = {
 }
 
 
+def validate_endpoint_url(url: str) -> str:
+    """SSRF guard applied to every outbound LLM / provider request.
+
+    - Only ``http`` / ``https`` schemes are allowed.
+    - URLs must not embed credentials (``user:pass@host``).
+    - Loopback hosts are allowed so local inference servers (Ollama, LM
+      Studio, vLLM) keep working.
+    - Other private / link-local / reserved targets are rejected unless the
+      ``AADS_ALLOW_PRIVATE_ENDPOINTS`` environment variable is enabled
+      (opt-in for LAN-hosted inference servers).
+    """
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ConfigError(f"endpoint scheme must be http(s): {url!r}")
+    if not parsed.hostname:
+        raise ConfigError(f"endpoint is missing a host: {url!r}")
+    if parsed.username or parsed.password:
+        raise ConfigError("endpoint must not embed credentials")
+
+    allow_private = os.getenv("AADS_ALLOW_PRIVATE_ENDPOINTS", "").strip().lower() in {"1", "true", "yes"}
+    try:
+        addr_infos = socket.getaddrinfo(parsed.hostname, None)
+    except socket.gaierror as exc:
+        raise ConfigError(f"endpoint host could not be resolved: {parsed.hostname!r}") from exc
+
+    for info in addr_infos:
+        ip = ipaddress.ip_address(info[4][0])
+        if ip.is_loopback:
+            continue
+        if (ip.is_private or ip.is_link_local or ip.is_reserved or ip.is_multicast) and not allow_private:
+            raise ConfigError(
+                f"endpoint host resolves to a non-public address ({ip}); "
+                "set AADS_ALLOW_PRIVATE_ENDPOINTS=1 to allow LAN-hosted inference servers"
+            )
+    return url
+
+
 class AADSLLMResponse:
     """Standardized response container compatible with LangChain BaseMessage."""
 
@@ -118,6 +159,8 @@ class BaseAADSLLM:
         self.api_key = api_key
         self.temperature = temperature
         self.base_url = base_url
+        if self.base_url:
+            validate_endpoint_url(self.base_url)
         self.extra_headers = extra_headers or {}
 
     def _normalize_messages(self, input_data: Any) -> list[dict[str, str]]:
@@ -178,6 +221,7 @@ class OpenAILikeLLM(BaseAADSLLM):
         )
 
         try:
+            validate_endpoint_url(req.full_url)
             with urllib.request.urlopen(req, timeout=25) as resp:
                 resp_data = json.loads(resp.read().decode("utf-8"))
                 choice = resp_data.get("choices", [{}])[0]
@@ -214,6 +258,7 @@ class GoogleGeminiLLM(BaseAADSLLM):
             contents.append({"role": role, "parts": [{"text": m.get("content", "")}]})
 
         model_name = self.model if self.model.startswith("gemini") else f"gemini-2.0-flash"
+        model_name = re.sub(r"[^A-Za-z0-9._-]+", "-", model_name)
         endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
 
         payload = {
@@ -229,6 +274,7 @@ class GoogleGeminiLLM(BaseAADSLLM):
         )
 
         try:
+            validate_endpoint_url(req.full_url)
             with urllib.request.urlopen(req, timeout=60) as resp:
                 resp_data = json.loads(resp.read().decode("utf-8"))
                 candidates = resp_data.get("candidates", [{}])
@@ -281,6 +327,7 @@ class AnthropicLLM(BaseAADSLLM):
         )
 
         try:
+            validate_endpoint_url(req.full_url)
             with urllib.request.urlopen(req, timeout=60) as resp:
                 resp_data = json.loads(resp.read().decode("utf-8"))
                 content_blocks = resp_data.get("content", [{}])
@@ -306,6 +353,7 @@ def list_provider_models(provider: str, api_key: Optional[str] = None) -> list[s
                     **({"Authorization": f"Bearer {api_key}"} if api_key else {}),
                 },
             )
+            validate_endpoint_url(req.full_url)
             with urllib.request.urlopen(req, timeout=5) as resp:
                 if resp.status == 200:
                     data = json.loads(resp.read().decode("utf-8"))
@@ -332,6 +380,7 @@ def list_provider_models(provider: str, api_key: Optional[str] = None) -> list[s
                     "Authorization": f"Bearer {clean_k}",
                 },
             )
+            validate_endpoint_url(req.full_url)
             with urllib.request.urlopen(req, timeout=5) as resp:
                 if resp.status == 200:
                     data = json.loads(resp.read().decode("utf-8"))
@@ -350,6 +399,7 @@ def list_provider_models(provider: str, api_key: Optional[str] = None) -> list[s
     if prov == "ollama":
         try:
             req = urllib.request.Request("http://localhost:11434/api/tags")
+            validate_endpoint_url(req.full_url)
             with urllib.request.urlopen(req, timeout=2) as resp:
                 if resp.status == 200:
                     data = json.loads(resp.read().decode("utf-8"))

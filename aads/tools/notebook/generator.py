@@ -158,6 +158,14 @@ MODELS_DIR = Path("../06_Models")
 
 # Ensure target output directories exist
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
+
+def _safe_model_path(name):
+    # Resolve a model artifact filename inside MODELS_DIR (traversal-safe).
+    candidate = (MODELS_DIR / Path(str(name)).name).resolve()
+    expected_parent = MODELS_DIR.resolve()
+    if candidate.parent != expected_parent:
+        raise ValueError("model path escapes MODELS_DIR: " + str(name))
+    return candidate
 Path("../02_Cleaned_Data").mkdir(parents=True, exist_ok=True)
 Path("../03_Feature_Engineered_Data").mkdir(parents=True, exist_ok=True)
 Path("../04_ML_Ready_Data").mkdir(parents=True, exist_ok=True)
@@ -406,7 +414,7 @@ else:
     X_test_encoded = X_te_base
 
 # Save preprocessing pipeline
-pipe_save_path = MODELS_DIR / "preprocessing_pipeline.pkl"
+pipe_save_path = _safe_model_path("preprocessing_pipeline.pkl")
 with open(pipe_save_path, "wb") as f:
     pickle.dump(preprocessor, f)
 
@@ -538,7 +546,7 @@ for idx, row in top_selected_rows.iterrows():
     # Clean model slug
     slug = m_name.lower().replace("classifier", "_classifier").replace("regressor", "_regressor")
     filename = f"model_{{rank:02d}}_{{slug}}.pkl"
-    save_path = MODELS_DIR / filename
+    save_path = _safe_model_path(filename)
     
     # Save model artifact
     model_obj = trained_models[m_name]
@@ -555,7 +563,7 @@ for idx, row in top_selected_rows.iterrows():
     cells.append(_make_code_cell("""# Load Rank 1 model and verify sample inference pipeline
 rank_1_name = top_selected_rows.iloc[0]["model"]
 rank_1_slug = rank_1_name.lower().replace("classifier", "_classifier").replace("regressor", "_regressor")
-rank_1_file = MODELS_DIR / f"model_01_{rank_1_slug}.pkl"
+rank_1_file = _safe_model_path(f"model_01_{rank_1_slug}.pkl")
 
 if rank_1_file.exists():
     with open(rank_1_file, "rb") as f:

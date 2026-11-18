@@ -11,8 +11,12 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from aads.core.paths import ensure_within
+
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-_SETTINGS_PATH = _PROJECT_ROOT / ".aads_user_settings.json"
+_SETTINGS_PATH = ensure_within(
+    _PROJECT_ROOT, _PROJECT_ROOT / ".aads_user_settings.json"
+)
 
 
 def get_settings_file_path() -> Path:

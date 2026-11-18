@@ -44,3 +44,18 @@ python-dotenv>=1.0
 fastapi>=0.115
 uvicorn[standard]>=0.30
 python-multipart>=0.0.9
+
+# ── Security floors (transitive deps with known advisories) ──
+pillow>=13.0.0
+pyasn1>=0.6.5
+tornado>=6.6.1
+urllib3>=2.8.0
+werkzeug>=3.1.9
+aiohttp>=3.14.4
+certifi>=2026.10.18
+gitpython>=3.1.60
+graphql-core>=3.2.12
+multidict>=6.9.1
+opentelemetry-api>=1.45.2
+mlflow>=3.17.2
+cryptography>=50.0.0

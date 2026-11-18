@@ -13,9 +13,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 
+from aads.core.paths import ensure_within, reject_traversal
 from aads.core.schemas import AutonomyMode, ExecutionEngine
 
 
@@ -39,14 +40,28 @@ class AADSConfig(BaseSettings):
         description="Directory where generated run folders are created",
     )
 
+    @field_validator("storage_dir", mode="after")
+    @classmethod
+    def _reject_storage_dir_traversal(cls, value: str) -> str:
+        """Reject '..' traversal segments in user-supplied storage overrides."""
+        if value and str(value).strip():
+            return reject_traversal(value.strip(), field="storage_dir")
+        return value
+
     @property
     def storage_root(self) -> Path:
-        """Return safe resolved absolute Path for storage directory anchored to project_root."""
+        """Return safe resolved absolute Path for storage directory anchored to project_root.
+
+        Rejects ``..`` traversal segments in user-supplied relative paths and
+        enforces containment within the project root for relative overrides.
+        Absolute overrides are honored as-is (explicit user choice of location).
+        """
         if self.storage_dir and str(self.storage_dir).strip():
-            p = Path(self.storage_dir)
+            raw = reject_traversal(self.storage_dir.strip(), field="storage_dir")
+            p = Path(raw)
             if p.is_absolute():
                 return p.resolve()
-            return (self.project_root / p).resolve()
+            return ensure_within(self.project_root, self.project_root / p)
         return (self.project_root / "storage" / "runs").resolve()
 
     # ── Execution Mode ────────────────────────────────────────────────────

@@ -33,6 +33,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 from aads.agents.orchestrator import AADSOrchestrator
 from aads.core.config import AADSConfig
 from aads.core.llm import DEFAULT_PROVIDER_MODELS, list_provider_models, test_llm_connection
+from aads.core.paths import ensure_within, reject_traversal, sanitize_filename
 from aads.core.schemas import AutonomyMode, ExecutionEngine
 from aads.core.settings import (
     get_stored_api_key,
@@ -124,8 +125,11 @@ def health():
 def upload_file(file: UploadFile = File(...)):
     temp_dir = _PROJECT_ROOT / "storage" / "temp_uploads"
     temp_dir.mkdir(parents=True, exist_ok=True)
-    clean_filename = Path(file.filename).name
-    dest = temp_dir / clean_filename
+    original_name = sanitize_filename(file.filename or "uploaded_dataset")
+    # Store under a server-generated name so no user text reaches the
+    # filesystem path; the original name is echoed back for display only.
+    clean_filename = f"{uuid.uuid4().hex}{Path(original_name).suffix}"
+    dest = ensure_within(temp_dir, temp_dir / clean_filename)
     
     import shutil
     with open(dest, "wb") as buffer:
@@ -133,7 +137,7 @@ def upload_file(file: UploadFile = File(...)):
         
     size_bytes = dest.stat().st_size
     return {
-        "filename": clean_filename,
+        "filename": original_name,
         "path": str(dest.resolve()),
         "size_bytes": size_bytes,
     }
@@ -182,7 +186,9 @@ def _run_pipeline_thread(run_id: str, req: PipelineRequest):
             "top_models_count": 4,
         }
         if req.storage_dir and req.storage_dir.strip():
-            cfg_kwargs["storage_dir"] = req.storage_dir.strip()
+            cfg_kwargs["storage_dir"] = reject_traversal(
+                req.storage_dir.strip(), field="storage_dir"
+            )
         if req.execution_mode == "ai":
             cfg_kwargs["llm_provider"] = req.llm_provider
             cfg_kwargs["llm_model"] = req.llm_model
