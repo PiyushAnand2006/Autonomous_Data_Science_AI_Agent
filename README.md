@@ -175,8 +175,8 @@ flowchart TB
 - **DuckDB**: Fast in-process analytical SQL queries.
 
 ### 🎨 Frontend UI & Visualization
-- **React 18 + Vite**: High-performance single-page app with floating navbar, real-time pipeline visualizer, and artifact manager.
-- **Deep Black & Radiant Royal Purple Design System**: Modern dark-mode aesthetic with ambient purple glows, frosted double-bezel cards, and responsive micro-interactions.
+- **React 18 + Vite**: High-performance single-page app with a workspace sidebar, real-time pipeline console, and artifact manager.
+- **Foundry Design System**: Warm paper light mode + obsidian dark mode (`#0B0D0E` / chartreuse `#B7F31C`), Fraunces display serif with Inter & JetBrains Mono, furnace-gradient accents, hand-drawn SVG icon set, and a pill light/dark switch.
 - **FastAPI (Async Backend)**: High-speed ASGI REST API and Server-Sent Events (SSE) log streaming.
 - **Streamlit**: Classic interactive web dashboard.
 - **Plotly & Matplotlib**: Interactive and high-res static diagnostic visualizations.
@@ -186,8 +186,8 @@ flowchart TB
 ## 🎨 Modern UI & Experience
 
 AUDAS offers a **React 18 + Vite** web interface powered by a **FastAPI backend**:
-- **Radiant Purple Aesthetic**: Built with deep obsidian surfaces (`#05020c`), radiant purple lighting, and frosted glass components.
-- **Real-Time Pipeline Stepper**: Live tracking of all 8 pipeline phases with elapsed timers, progress percentages, and streaming audit logs.
+- **Foundry Design System**: Dark-first — an obsidian default (`#0B0D0E`) with a chartreuse accent (`#B7F31C`), plus a warm paper light mode, Fraunces display headings, and a pill light/dark switch at the top-right.
+- **Real-Time Pipeline Console**: Live espresso-dark stream of every agent phase with per-agent tag pills, pulsing status, and streaming audit logs.
 - **Frontier Model Combobox**: Search, type, or pick top frontier models with instant keyboard navigation.
 - **Dedicated Artifact Explorer**: In-browser tabs for inspecting EDA visuals, model leaderboards, data quality scores, and full project downloads.
 
