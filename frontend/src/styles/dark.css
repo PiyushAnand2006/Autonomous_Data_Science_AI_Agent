@@ -1,0 +1,224 @@
+/* ============================================================
+   AUDAS Foundry — Dark theme "Fluorescent Foundry"
+   Obsidian black canvas (#0B0D0E) · chartreuse accent (#B7F31C)
+   White ink — layered dark cards, one electric accent.
+   This is the DEFAULT theme on first open (index.html applies
+   it unless localStorage holds an explicit "light" choice).
+   ============================================================ */
+
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  /* ---- Canvas & surfaces (obsidian, layered) ---- */
+  --paper:        #0B0D0E;
+  --paper-deep:   #08090A;
+  --surface:      #111416;
+  --surface-2:    #15181A;
+  --surface-3:    #1C2022;
+
+  /* ---- Ink (white / neutral-cool grays) ---- */
+  --ink:          #ffffff;
+  --ink-2:        #b6bcc0;
+  --ink-3:        #8b9297;
+  --ink-4:        #585f63;
+
+  /* ---- Lines ---- */
+  --line:         #1e2224;
+  --line-2:       #2c3134;
+  --line-3:       #40474b;
+
+  /* ---- Accent (chartreuse #B7F31C) ---- */
+  --ember-1:      #B7F31C;
+  --ember-2:      #A5DB16;
+  --ember-3:      #D2FF45;
+  --ember-deep:   #8FC90A;
+  --ember-bright: #C6FF35;
+  --ember-tint:   rgba(183, 243, 28, 0.10);
+  --ember-wash:   rgba(183, 243, 28, 0.07);
+  --on-primary:   #0C1106;
+
+  /* ---- Jade (success — greener sibling of the chartreuse) ---- */
+  --jade:         #6FE84C;
+  --jade-bright:  #8CF06B;
+  --jade-tint:    rgba(111, 232, 76, 0.10);
+  --jade-wash:    rgba(111, 232, 76, 0.07);
+
+  /* ---- Alert ---- */
+  --alert:        #ff6b5e;
+  --alert-bright: #ff8578;
+  --alert-tint:   rgba(255, 107, 94, 0.10);
+
+  /* ---- Sand (info) ---- */
+  --sand:         #ffd24d;
+  --sand-tint:    rgba(255, 210, 77, 0.09);
+
+  /* ---- Console (raised off the obsidian page) ---- */
+  --espresso-0:   #07090A;
+  --espresso-1:   #0E1113;
+  --espresso-2:   #181C1E;
+  --espresso-line: rgba(183, 243, 28, 0.14);
+  --espresso-text: #f2f4f2;
+  --espresso-dim:  #9ba3a7;
+  --espresso-faint: #596065;
+
+  /* ---- Log tag spectrum (chartreuse family + warm signals) ---- */
+  --tag-amber:  #ffd24d;
+  --tag-clay:   #cdef6e;
+  --tag-rust:   #ff8a5e;
+  --tag-olive:  #d6f35c;
+  --tag-jade:   #86f04a;
+  --tag-copper: #d4f36b;
+  --tag-sand:   #eaf5c8;
+  --tag-cocoa:  #5ce8a4;
+  --tag-ember:  #B7F31C;
+
+  /* ---- Gradients ---- */
+  --grad-ember: linear-gradient(135deg, #D2FF45 0%, #B7F31C 55%, #8FC90A 100%);
+  --grad-ember-soft: linear-gradient(135deg, rgba(210, 255, 69, 0.12), rgba(143, 201, 10, 0.12));
+  --grad-text: linear-gradient(98deg, #D2FF45 0%, #B7F31C 55%, #A5DB16 100%);
+  --grad-hairline: linear-gradient(90deg, transparent 0%, var(--line-3) 18%, var(--ember-1) 50%, var(--line-3) 82%, transparent 100%);
+  --grad-espresso: linear-gradient(180deg, #0E1113 0%, #07090A 100%);
+  --grad-gold-badge: linear-gradient(135deg, #A5DB16, #D2FF45);
+
+  /* ---- Ambient washes (chartreuse glow, very restrained) ---- */
+  --wash-amber: radial-gradient(ellipse 900px 520px at 85% -8%, rgba(183, 243, 28, 0.055), transparent 60%);
+  --wash-clay:  radial-gradient(ellipse 760px 480px at -10% 30%, rgba(143, 201, 10, 0.045), transparent 62%);
+  --wash-jade:  radial-gradient(ellipse 700px 420px at 60% 110%, rgba(111, 232, 76, 0.035), transparent 60%);
+
+  /* ---- Shadows (obsidian depth, chartreuse glow for accents) ---- */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.55), 0 1px 6px rgba(0, 0, 0, 0.38);
+  --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.5), 0 8px 22px rgba(0, 0, 0, 0.55);
+  --shadow-lg: 0 4px 10px rgba(0, 0, 0, 0.55), 0 20px 48px rgba(0, 0, 0, 0.65);
+  --shadow-console: inset 0 1px 0 rgba(183, 243, 28, 0.08), 0 12px 32px rgba(0, 0, 0, 0.55);
+  --shadow-focus: 0 0 0 3px rgba(183, 243, 28, 0.25);
+}
+
+/* ---------- Component-level dark adjustments ---------- */
+
+/* Native select chevron — lighter stroke */
+[data-theme='dark'] .select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23b6bcc0' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+
+/* Chartreuse buttons carry dark ink */
+[data-theme='dark'] .btn-primary {
+  color: var(--on-primary);
+  box-shadow: 0 2px 14px rgba(183, 243, 28, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+[data-theme='dark'] .btn-primary:hover:not(:disabled) {
+  box-shadow: 0 4px 22px rgba(183, 243, 28, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+[data-theme='dark'] .btn-pill {
+  box-shadow: 0 4px 20px rgba(183, 243, 28, 0.3),
+              inset 0 1px 0 rgba(255, 255, 255, 0.4),
+              inset 0 -12px 22px rgba(30, 60, 0, 0.35);
+}
+[data-theme='dark'] .btn-pill:hover:not(:disabled) {
+  box-shadow: 0 6px 26px rgba(183, 243, 28, 0.42),
+              inset 0 1px 0 rgba(255, 255, 255, 0.4),
+              inset 0 -12px 22px rgba(30, 60, 0, 0.35);
+}
+[data-theme='dark'] .btn-chip { background: rgba(12, 17, 6, 0.22); }
+[data-theme='dark'] .filter-pill.active {
+  color: var(--on-primary);
+  box-shadow: 0 2px 12px rgba(183, 243, 28, 0.25);
+}
+[data-theme='dark'] .rank-badge.gold { color: var(--on-primary); }
+[data-theme='dark'] .btn-secondary:hover:not(:disabled) {
+  border-color: var(--ember-1);
+  color: var(--ember-3);
+  background: var(--ember-tint);
+}
+
+/* Brand + glow cards */
+[data-theme='dark'] .brand-mark {
+  box-shadow: 0 3px 16px rgba(183, 243, 28, 0.25);
+}
+[data-theme='dark'] .card-glow {
+  border-color: rgba(183, 243, 28, 0.4);
+  box-shadow: var(--shadow-md), inset 0 0 0 1px rgba(183, 243, 28, 0.07);
+}
+[data-theme='dark'] .card-jade { border-color: rgba(111, 232, 76, 0.32); }
+
+/* Chips & notices */
+[data-theme='dark'] .chip-ember { border-color: rgba(183, 243, 28, 0.34); }
+[data-theme='dark'] .chip-jade { border-color: rgba(111, 232, 76, 0.32); }
+[data-theme='dark'] .chip-alert { border-color: rgba(255, 107, 94, 0.32); }
+[data-theme='dark'] .notice-sand { border-color: rgba(255, 210, 77, 0.28); }
+[data-theme='dark'] .notice-jade { border-color: rgba(111, 232, 76, 0.28); }
+[data-theme='dark'] .notice-alert { border-color: rgba(255, 107, 94, 0.28); }
+[data-theme='dark'] .ready-chip { border-color: rgba(111, 232, 76, 0.28); }
+
+/* ZIP banner glow */
+[data-theme='dark'] .zip-banner {
+  background:
+    radial-gradient(ellipse 480px 220px at 88% -20%, rgba(183, 243, 28, 0.08), transparent 65%),
+    radial-gradient(ellipse 380px 200px at 0% 120%, rgba(111, 232, 76, 0.045), transparent 60%),
+    var(--surface);
+}
+
+/* Markdown inline code */
+[data-theme='dark'] .markdown-body code { border-color: rgba(183, 243, 28, 0.22); }
+
+/* Presets, quick links */
+[data-theme='dark'] .preset-chip.active { border-color: rgba(183, 243, 28, 0.5); }
+[data-theme='dark'] .quick-link:hover {
+  border-color: rgba(183, 243, 28, 0.42);
+  background: var(--ember-tint);
+}
+
+/* Scrim & overlays */
+[data-theme='dark'] ::selection { background: rgba(183, 243, 28, 0.28); }
+[data-theme='dark'] .lightbox-overlay { background: rgba(2, 3, 3, 0.82); }
+[data-theme='dark'] .drawer-overlay { background: rgba(2, 3, 3, 0.6); }
+
+/* Status dots */
+[data-theme='dark'] .status-dot.online { box-shadow: 0 0 0 3px rgba(111, 232, 76, 0.18); }
+[data-theme='dark'] .status-dot.offline { box-shadow: 0 0 0 3px rgba(255, 107, 94, 0.15); }
+
+/* Console pulse (chartreuse) */
+[data-theme='dark'] .console-status-dot.running {
+  background: var(--ember-bright);
+  box-shadow: 0 0 0 0 rgba(183, 243, 28, 0.4);
+  animation: pulse-dot-dark 1.6s ease-out infinite;
+}
+
+@keyframes pulse-dot-dark {
+  0% { box-shadow: 0 0 0 0 rgba(183, 243, 28, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(183, 243, 28, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(183, 243, 28, 0); }
+}
+
+[data-theme='dark'] .console-error {
+  background: rgba(255, 107, 94, 0.1);
+  border-color: rgba(255, 107, 94, 0.32);
+  color: #ffc9c0;
+}
+[data-theme='dark'] .console-error strong { color: #ffdcd6; }
+
+/* Log tag pills — chartreuse tint backgrounds on the dark console */
+[data-theme='dark'] .tag-amber  { border-color: rgba(255, 210, 77, 0.35); background: rgba(255, 210, 77, 0.08); }
+[data-theme='dark'] .tag-clay   { border-color: rgba(205, 239, 110, 0.35); background: rgba(205, 239, 110, 0.08); }
+[data-theme='dark'] .tag-rust   { border-color: rgba(255, 138, 94, 0.4); background: rgba(255, 138, 94, 0.09); }
+[data-theme='dark'] .tag-olive  { border-color: rgba(214, 243, 92, 0.35); background: rgba(214, 243, 92, 0.08); }
+[data-theme='dark'] .tag-jade   { border-color: rgba(134, 240, 74, 0.35); background: rgba(134, 240, 74, 0.08); }
+[data-theme='dark'] .tag-copper { border-color: rgba(212, 243, 107, 0.35); background: rgba(212, 243, 107, 0.08); }
+[data-theme='dark'] .tag-sand   { border-color: rgba(234, 245, 200, 0.32); background: rgba(234, 245, 200, 0.06); }
+[data-theme='dark'] .tag-cocoa  { border-color: rgba(92, 232, 164, 0.38); background: rgba(92, 232, 164, 0.09); }
+[data-theme='dark'] .tag-ember  { border-color: rgba(183, 243, 28, 0.42); background: rgba(183, 243, 28, 0.1); }
+
+/* Chart canvases stay white — matplotlib output is light; framed on dark cards */
+[data-theme='dark'] .viz-canvas { border-color: var(--line-2); }
+[data-theme='dark'] .lightbox-canvas { border-color: var(--line-2); }
+
+/* ---------- Theme switch (pill toggle, top-right) ---------- */
+
+[data-theme='dark'] .theme-switch {
+  background: #101417;
+  border-color: #2c3134;
+}
+[data-theme='dark'] .theme-switch-knob {
+  box-shadow: 0 2px 14px rgba(183, 243, 28, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+[data-theme='dark'] .theme-switch .icon-sun { color: var(--ink-3); }
+[data-theme='dark'] .theme-switch .icon-moon { color: #0C1106; }

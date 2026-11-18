@@ -1,94 +1,134 @@
-/* ──────────────────────────────────────────────────────────────────────────────
-   AUDAS — Design Token System (Deep Black & Radiant Royal Purple)
-   ────────────────────────────────────────────────────────────────────────────── */
-
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+/* ============================================================
+   AUDAS "Foundry" Design Tokens
+   Warm paper canvas · espresso console · furnace gradients
+   Palette: amber / terracotta / clay / jade — no purple, no blue
+   Fonts are loaded via <link> in index.html.
+   ============================================================ */
 
 :root {
-  /* ── Deep Black & Purple Canvas & Surfaces ── */
-  --canvas:       #06020e;
-  --surface-1:    rgba(19, 8, 38, 0.75);
-  --surface-2:    rgba(27, 12, 54, 0.85);
-  --surface-3:    rgba(38, 17, 74, 0.9);
-  --surface-4:    rgba(53, 24, 102, 0.95);
+  color-scheme: light;
 
-  /* ── Purple-Tinted Glass Borders ── */
-  --border-subtle:  rgba(168, 85, 247, 0.18);
-  --border-medium:  rgba(168, 85, 247, 0.32);
-  --border-strong:  rgba(192, 132, 252, 0.55);
+  /* ---- Canvas & surfaces (warm paper family) ---- */
+  --paper:        #f4f1e8;
+  --paper-deep:   #ede9dc;
+  --surface:      #fffdf7;
+  --surface-2:    #f8f5ec;
+  --surface-3:    #f0ecdf;
 
-  /* ── Text ── */
-  --text-primary:   #faf5ff;
-  --text-secondary: #d8b4fe;
-  --text-muted:     #a855f7;
-  --text-ghost:     #7e22ce;
+  /* ---- Ink (warm neutrals) ---- */
+  --ink:          #231f16;
+  --ink-2:        #5b5443;
+  --ink-3:        #8b8270;
+  --ink-4:        #aaa191;
 
-  /* ── Accents & Neon Purples ── */
-  --accent-purple:         #9333ea;
-  --accent-purple-glow:    rgba(168, 85, 247, 0.35);
-  --accent-purple-muted:   rgba(168, 85, 247, 0.18);
-  
-  --accent-sapphire:       #7c3aed;
-  --accent-sapphire-glow:  rgba(124, 58, 237, 0.3);
-  --accent-sapphire-muted: rgba(124, 58, 237, 0.15);
-  
-  --accent-emerald:        #10b981;
-  --accent-emerald-glow:   rgba(16, 185, 129, 0.25);
-  --accent-amber:          #f59e0b;
-  --accent-amber-glow:     rgba(245, 158, 11, 0.2);
-  --accent-rose:           #f43f5e;
-  --accent-rose-glow:      rgba(244, 63, 94, 0.2);
+  /* ---- Lines ---- */
+  --line:         #e4decd;
+  --line-2:       #d2c9b2;
+  --line-3:       #c1b799;
 
-  /* ── Typography ── */
-  --font-display: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono:    'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  /* ---- Ember (primary accent) ---- */
+  --ember-1:      #b45309;   /* amber-700 */
+  --ember-2:      #c2410c;   /* orange-700 */
+  --ember-3:      #9a3412;   /* burnt clay */
+  --ember-deep:   #7c2d12;
+  --ember-bright: #d97706;   /* amber-600 */
+  --ember-tint:   #f7ead6;
+  --ember-wash:   rgba(180, 83, 9, 0.08);
+  --on-primary:   #fff8ec;   /* text on primary-gradient buttons */
 
-  --text-xs:   0.72rem;
-  --text-sm:   0.82rem;
-  --text-base: 0.92rem;
-  --text-md:   1.0rem;
-  --text-lg:   1.15rem;
-  --text-xl:   1.35rem;
-  --text-2xl:  1.75rem;
-  --text-3xl:  2.4rem;
-  --text-4xl:  3.2rem;
+  /* ---- Jade (success) ---- */
+  --jade:         #0e7a4f;
+  --jade-bright:  #12855a;
+  --jade-tint:    #e4f1e6;
+  --jade-wash:    rgba(14, 122, 79, 0.08);
 
-  /* ── Spacing ── */
-  --space-1:  4px;
-  --space-2:  8px;
-  --space-3:  12px;
-  --space-4:  16px;
-  --space-5:  20px;
-  --space-6:  24px;
-  --space-8:  32px;
-  --space-10: 40px;
-  --space-12: 48px;
-  --space-16: 64px;
-  --space-20: 80px;
-  --space-24: 96px;
+  /* ---- Alert (danger) ---- */
+  --alert:        #b3261e;
+  --alert-bright: #c93a30;
+  --alert-tint:   #f8e7e2;
 
-  /* ── Radii ── */
-  --radius-sm:    8px;
-  --radius-md:    12px;
-  --radius-lg:    16px;
-  --radius-xl:    20px;
-  --radius-2xl:   24px;
-  --radius-inner: calc(var(--radius-xl) - 6px);
-  --radius-full:  9999px;
+  /* ---- Sand (info / notice) ---- */
+  --sand:         #8a6d1f;
+  --sand-tint:    #f6efdb;
 
-  /* ── Motion ── */
-  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-spring:   cubic-bezier(0.32, 0.72, 0, 1);
-  --ease-bounce:   cubic-bezier(0.34, 1.56, 0.64, 1);
-  --duration-fast:   150ms;
-  --duration-normal: 280ms;
-  --duration-slow:   500ms;
-  --duration-reveal: 800ms;
+  /* ---- Espresso (console / dark panels) ---- */
+  --espresso-0:   #211a10;
+  --espresso-1:   #2a2216;
+  --espresso-2:   #352b1c;
+  --espresso-line: rgba(214, 186, 140, 0.16);
+  --espresso-text: #ede4cf;
+  --espresso-dim: #a3977c;
+  --espresso-faint: #6e6350;
 
-  /* ── Shadows ── */
-  --shadow-card:  0 4px 16px rgba(0, 0, 0, 0.5), 0 8px 36px rgba(109, 40, 217, 0.2);
-  --shadow-float: 0 16px 56px rgba(0, 0, 0, 0.7), 0 0 32px rgba(168, 85, 247, 0.3);
-  --shadow-glow-sapphire: 0 0 40px rgba(147, 51, 234, 0.35);
-  --shadow-glow-emerald:  0 0 40px rgba(16, 185, 129, 0.25);
-  --shadow-inset: inset 0 1px 1px rgba(216, 180, 254, 0.15);
+  /* ---- Log tag spectrum (warm, per-agent) ---- */
+  --tag-amber:  #c07b1c;
+  --tag-clay:   #c26a3a;
+  --tag-rust:   #b0522f;
+  --tag-olive:  #8a8f3c;
+  --tag-jade:   #3e9e6e;
+  --tag-copper: #b8863b;
+  --tag-sand:   #a08c55;
+  --tag-cocoa:  #96683c;
+  --tag-ember:  #d97c2b;
+
+  /* ---- Gradients ---- */
+  --grad-ember: linear-gradient(135deg, #d97706 0%, #c2410c 55%, #9a3412 100%);
+  --grad-ember-soft: linear-gradient(135deg, rgba(217, 119, 6, 0.14), rgba(154, 52, 18, 0.14));
+  --grad-text: linear-gradient(98deg, #92400e 0%, #c2410c 55%, #b45309 100%);
+  --grad-hairline: linear-gradient(90deg, transparent 0%, var(--line-3) 18%, var(--ember-2) 50%, var(--line-3) 82%, transparent 100%);
+  --grad-espresso: linear-gradient(180deg, #2a2216 0%, #211a10 100%);
+  --grad-gold-badge: linear-gradient(135deg, #b45309, #d97706);
+
+  /* ---- Ambient washes (page ambience, very subtle) ---- */
+  --wash-amber: radial-gradient(ellipse 900px 520px at 85% -8%, rgba(193, 112, 32, 0.10), transparent 60%);
+  --wash-clay:  radial-gradient(ellipse 760px 480px at -10% 30%, rgba(154, 82, 47, 0.07), transparent 62%);
+  --wash-jade:  radial-gradient(ellipse 700px 420px at 60% 110%, rgba(14, 122, 79, 0.05), transparent 60%);
+
+  /* ---- Typography ---- */
+  --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-body: 'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Mono', Menlo, monospace;
+
+  --text-xs: 0.75rem;     /* 12px */
+  --text-sm: 0.8125rem;   /* 13px */
+  --text-md: 0.875rem;    /* 14px */
+  --text-base: 0.9375rem; /* 15px */
+  --text-lg: 1.0625rem;   /* 17px */
+  --text-xl: 1.375rem;    /* 22px */
+  --text-2xl: 1.75rem;    /* 28px */
+  --text-display: clamp(1.9rem, 3.2vw, 2.6rem);
+
+  /* ---- Radii (soft workshop rounding, not pill-everything) ---- */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 999px;
+
+  /* ---- Shadows (warm-tinted, grounded) ---- */
+  --shadow-sm: 0 1px 2px rgba(66, 48, 20, 0.06), 0 1px 6px rgba(66, 48, 20, 0.05);
+  --shadow-md: 0 2px 4px rgba(66, 48, 20, 0.05), 0 8px 22px rgba(66, 48, 20, 0.08);
+  --shadow-lg: 0 4px 10px rgba(52, 38, 16, 0.08), 0 20px 48px rgba(52, 38, 16, 0.14);
+  --shadow-console: inset 0 1px 0 rgba(255, 224, 168, 0.06), 0 12px 32px rgba(43, 31, 12, 0.22);
+  --shadow-focus: 0 0 0 3px rgba(180, 83, 9, 0.18);
+
+  /* ---- Motion ---- */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+  --dur-fast: 140ms;
+  --dur-base: 220ms;
+  --dur-slow: 340ms;
+
+  /* ---- Layout ---- */
+  --sidebar-w: 248px;
+  --content-max: 1180px;
+  --header-h: 64px;
+
+  /* ---- Z scale ----
+     The drawer scrim (--z-overlay) must paint BELOW the drawer itself,
+     otherwise the scrim's backdrop-blur applies to the drawer panel. */
+  --z-nav: 100;
+  --z-overlay: 200;
+  --z-drawer: 300;
+  --z-lightbox: 400;
 }

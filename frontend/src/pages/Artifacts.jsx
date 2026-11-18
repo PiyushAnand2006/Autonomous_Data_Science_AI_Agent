@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '../components/Card';
+import { EmptyState } from '../components/EmptyState';
+import { Icon } from '../components/Icon';
 import { listPipelineFiles, getFileDownloadUrl, getZipDownloadUrl } from '../api';
 
 export function Artifacts({ result }) {
@@ -20,9 +22,11 @@ export function Artifacts({ result }) {
     try {
       const res = await listPipelineFiles(runId);
       setFolders(res.folders || {});
-      // Open all by default
+      // All folders open by default
       const initialOpen = {};
-      Object.keys(res.folders || {}).forEach((k) => { initialOpen[k] = true; });
+      Object.keys(res.folders || {}).forEach((k) => {
+        initialOpen[k] = true;
+      });
       setOpenFolders(initialOpen);
     } catch (e) {
       console.error('Failed to load files', e);
@@ -37,125 +41,130 @@ export function Artifacts({ result }) {
 
   if (!result) {
     return (
-      <div className="empty-state">
-        <div className="empty-state-icon">📦</div>
-        <div className="empty-state-title">No Artifacts Available</div>
-        <div className="empty-state-desc">
-          Run an autonomous pipeline to generate sanitized datasets, feature sets, serialized models, Jupyter notebooks, and reports.
-        </div>
-      </div>
+      <>
+        <header className="page-head">
+          <div className="eyebrow">Exportable System Deliverables</div>
+          <h1 className="page-title">
+            Project <span className="gradient-ink">artifacts</span>
+          </h1>
+          <hr className="head-rule" />
+        </header>
+        <EmptyState
+          icon="package"
+          title="No artifacts yet"
+          desc="Run an autonomous pipeline to generate sanitized datasets, feature sets, serialized models, a Jupyter notebook and executive reports — organized into 10 standardized folders."
+        />
+      </>
     );
   }
 
   return (
-    <div>
-      <div style={{ marginBottom: '32px' }}>
+    <>
+      <header className="page-head">
         <div className="eyebrow">Exportable System Deliverables</div>
-        <h2>Project Artifacts Explorer</h2>
-        <p>
-          Every stage of the autonomous pipeline produces auditable, standardized assets organized into 10 structured project directories.
+        <h1 className="page-title">
+          Project <span className="gradient-ink">artifacts</span>
+        </h1>
+        <p className="page-lede">
+          Every stage of the autonomous pipeline produces auditable, standardized assets organized
+          into 10 structured project directories.
         </p>
-      </div>
+        <hr className="head-rule" />
+      </header>
 
-      {/* Hero ZIP Download Banner */}
-      <div className="hero-banner" style={{ marginBottom: '32px' }}>
-        <div className="hero-banner-title">📦 Complete AI Data Science Project Package</div>
-        <div className="hero-banner-desc">
-          Download the complete self-contained project archive containing all <strong>10 standardized folders</strong>:
-          raw & cleaned CSV datasets, ML matrices, 4 top serialized models (.pkl), interactive Jupyter notebook (.ipynb), high-res visualizations (.png), executive summary (.md), and full benchmark logs.
+      {/* ZIP hero banner */}
+      <section className="zip-banner">
+        <div className="zip-banner-title">
+          <Icon name="package" size={22} />
+          Complete AI data science project package
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px', marginTop: '16px' }}>
-          <div className="hero-banner-id">Project Identifier: {result.run_id}</div>
-          <a
-            href={getZipDownloadUrl(result.run_id)}
-            className="btn btn-primary"
-          >
-            ⬇️ Download Entire Project Archive (.ZIP)
+        <div className="zip-banner-desc">
+          One self-contained archive with all <strong>10 standardized folders</strong>: raw &amp; cleaned CSV
+          datasets, ML-ready matrices, the top serialized models (.pkl), an interactive Jupyter notebook
+          (.ipynb), high-resolution visualizations (.png), the executive summary (.md) and full benchmark logs.
+        </div>
+        <div className="zip-banner-foot">
+          <div className="zip-banner-id">Project identifier · {result.run_id}</div>
+          <a href={getZipDownloadUrl(result.run_id)} className="btn btn-primary">
+            <Icon name="download" size={16} />
+            Download entire archive (.zip)
           </a>
         </div>
-      </div>
+      </section>
 
-      {/* Folder by Folder Explorer */}
-      <h3 style={{ marginBottom: '16px' }}>📂 Browse & Download Individual Artifacts</h3>
+      {/* Folder explorer */}
+      <section style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <h3 className="section-title" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <Icon name="folder" size={18} style={{ color: 'var(--ember-1)' }} />
+          Browse &amp; download individual artifacts
+        </h3>
 
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '32px', color: 'var(--text-muted)' }}>
-          Reading file system...
-        </div>
-      ) : Object.keys(folders).length > 0 ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {Object.entries(folders).map(([folderName, folderData]) => {
+        {loading ? (
+          <div className="loading-block">
+            <div className="spinner" />
+            <span>Reading file system…</span>
+          </div>
+        ) : Object.keys(folders).length > 0 ? (
+          Object.entries(folders).map(([folderName, folderData]) => {
             const isOpen = !!openFolders[folderName];
+            const files = folderData.files || [];
             return (
-              <Card key={folderName}>
-                <div
+              <div key={folderName} className="accordion folder-row">
+                <button
+                  type="button"
+                  className="accordion-head"
                   onClick={() => toggleFolder(folderName)}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    cursor: 'pointer',
-                    userSelect: 'none',
-                  }}
+                  aria-expanded={isOpen}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <span style={{ fontSize: '1.1rem' }}>{isOpen ? '📂' : '📁'}</span>
-                    <strong>{folderName}/</strong>
-                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-                      ({folderData.files?.length || 0} files) — <em>{folderData.description}</em>
-                    </span>
-                  </div>
-                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>
-                    {isOpen ? '▲' : '▼'}
+                  <span className="accordion-head-left">
+                    <Icon name="folder" size={16} style={{ color: 'var(--ember-1)' }} />
+                    <span className="mono" style={{ fontWeight: 600 }}>{folderName}/</span>
+                    <span className="accordion-meta">— {folderData.description}</span>
                   </span>
-                </div>
+                  <span className="accordion-meta">
+                    {files.length} {files.length === 1 ? 'file' : 'files'}
+                    <Icon
+                      name="chevron-down"
+                      size={15}
+                      className={`accordion-chevron ${isOpen ? 'open' : ''}`}
+                      style={{ marginLeft: 8, verticalAlign: -3 }}
+                    />
+                  </span>
+                </button>
 
-                {isOpen && folderData.files && folderData.files.length > 0 && (
-                  <div style={{ marginTop: '16px', borderTop: '1px solid var(--border-subtle)', paddingTop: '12px' }}>
-                    {folderData.files.map((file, idx) => (
-                      <div
-                        key={idx}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '6px 0',
-                          borderBottom: idx < folderData.files.length - 1 ? '1px solid var(--border-subtle)' : 'none',
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ color: 'var(--text-muted)' }}>📄</span>
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--text-primary)' }}>
-                            {file.path}
-                          </span>
-                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-                            ({file.size_kb} KB)
-                          </span>
+                {isOpen && files.length > 0 && (
+                  <div className="folder-files">
+                    {files.map((file, idx) => (
+                      <div key={idx} className="file-row">
+                        <div className="file-name">
+                          <Icon name="file" size={13} style={{ flexShrink: 0, color: 'var(--ink-4)' }} />
+                          <span>{file.path}</span>
+                          <span className="file-size">({file.size_kb} KB)</span>
                         </div>
-
                         <a
                           href={getFileDownloadUrl(result.run_id, file.path)}
                           download={file.name}
-                          className="btn btn-ghost"
-                          style={{ padding: '4px 12px', fontSize: 'var(--text-xs)', whiteSpace: 'nowrap' }}
+                          className="btn btn-ghost btn-sm"
+                          style={{ whiteSpace: 'nowrap' }}
                         >
-                          📥 Download {file.name}
+                          <Icon name="download" size={13} />
+                          Download
                         </a>
                       </div>
                     ))}
                   </div>
                 )}
-              </Card>
+              </div>
             );
-          })}
-        </div>
-      ) : (
-        <Card>
-          <div style={{ textAlign: 'center', padding: '24px', color: 'var(--text-muted)' }}>
-            No individual artifacts found for this run.
-          </div>
-        </Card>
-      )}
-    </div>
+          })
+        ) : (
+          <Card>
+            <div style={{ textAlign: 'center', padding: 24, color: 'var(--ink-3)' }}>
+              No individual artifacts were found for this run.
+            </div>
+          </Card>
+        )}
+      </section>
+    </>
   );
 }

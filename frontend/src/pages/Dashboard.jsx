@@ -1,30 +1,29 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Card } from '../components/Card';
 import { FileUploader } from '../components/FileUploader';
-import { PipelineProgress } from '../components/PipelineProgress';
+import { PipelineConsole } from '../components/PipelineConsole';
+import { Icon } from '../components/Icon';
 import { launchPipeline, subscribeToPipelineStream, getPipelineResult, previewDataset, getZipDownloadUrl } from '../api';
+
+const DEFAULT_OBJECTIVE = 'Predict customer churn, discover key behavioral drivers, and export top performing ML models.';
 
 export function Dashboard({ settings, setSettings, onOpenSettings, currentResult, setCurrentResult, onNavigateTab }) {
   const [dataFile, setDataFile] = useState(null);
-  const [objective, setObjective] = useState('Predict customer churn, discover key behavioral drivers, and export top performing ML models.');
+  const [objective, setObjective] = useState(DEFAULT_OBJECTIVE);
   const [targetCol, setTargetCol] = useState('');
   const [previewData, setPreviewData] = useState(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
   const [logs, setLogs] = useState([]);
   const [runId, setRunId] = useState(currentResult?.run_id || null);
   const [status, setStatus] = useState(currentResult ? 'completed' : 'idle');
   const [error, setError] = useState(null);
-
+  const [modeNotice, setModeNotice] = useState(null);
   const activeStreamCloseRef = useRef(null);
 
-  useEffect(() => {
-    if (!currentResult && !isRunning) {
-      setStatus('idle');
-      setLogs([]);
-      setError(null);
-      setRunId(null);
-    }
-  }, [currentResult, isRunning]);
+  // NOTE: no auto-reset effect here. Mode switches and file changes already
+  // reset state explicitly; a blanket reset-on-empty effect would race with
+  // result arrival and wipe the finished console's audit trail.
 
   useEffect(() => {
     return () => {
@@ -35,49 +34,41 @@ export function Dashboard({ settings, setSettings, onOpenSettings, currentResult
     };
   }, []);
 
-  const [modeNotice, setModeNotice] = useState(null);
-
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-
-  const isAiMode = settings?.execution_mode === 'ai';
-
-  const handleModeToggle = (mode) => {
-    if (settings?.execution_mode !== mode) {
-      if (activeStreamCloseRef.current) {
-        activeStreamCloseRef.current();
-        activeStreamCloseRef.current = null;
-      }
-      if (setSettings) {
-        setSettings((prev) => ({ ...prev, execution_mode: mode }));
-      }
-      if (setCurrentResult) {
-        setCurrentResult(null);
-      }
-      setLogs([]);
-      setStatus('idle');
-      setError(null);
-      setRunId(null);
-      setIsRunning(false);
-      setModeNotice(`Switched to ${mode === 'ai' ? '✨ AI-Powered Agentic' : '💻 Local (Deterministic)'} engine. Please click '🚀 Run Autonomous Pipeline' to execute under the new mode.`);
-      setTimeout(() => setModeNotice(null), 6000);
-    }
-  };
-
-  const handleFileReady = async (fileInfo) => {
+  const stopActiveStream = () => {
     if (activeStreamCloseRef.current) {
       activeStreamCloseRef.current();
       activeStreamCloseRef.current = null;
     }
-    setDataFile(fileInfo);
-    // Reset previous run session to start clean
-    if (setCurrentResult) {
-      setCurrentResult(null);
-    }
+  };
+
+  const resetRunState = () => {
     setLogs([]);
     setStatus('idle');
     setError(null);
     setRunId(null);
     setIsRunning(false);
+  };
+
+  const isAiMode = settings?.execution_mode === 'ai';
+
+  const handleModeToggle = (mode) => {
+    if (settings?.execution_mode !== mode) {
+      stopActiveStream();
+      setSettings((prev) => ({ ...prev, execution_mode: mode }));
+      setCurrentResult(null);
+      resetRunState();
+      setModeNotice(
+        `Switched to ${mode === 'ai' ? 'AI-Powered Agentic' : 'Local (Deterministic)'} engine. Launch the pipeline again to run under the new mode.`
+      );
+      setTimeout(() => setModeNotice(null), 6000);
+    }
+  };
+
+  const handleFileReady = async (fileInfo) => {
+    stopActiveStream();
+    setDataFile(fileInfo);
+    setCurrentResult(null);
+    resetRunState();
 
     if (!fileInfo) {
       setPreviewData(null);
@@ -94,18 +85,13 @@ export function Dashboard({ settings, setSettings, onOpenSettings, currentResult
   };
 
   const handleLaunch = async () => {
-    if (!dataFile || !dataFile.path) {
-      alert('Please upload or select a dataset first.');
-      return;
-    }
+    if (!dataFile || !dataFile.path) return;
 
-    // Immediately clear previous run result so old results are never displayed while new pipeline is running
-    if (setCurrentResult) {
-      setCurrentResult(null);
-    }
+    // Clear previous result so stale data is never shown while running
+    setCurrentResult(null);
     setRunId(null);
     setIsRunning(true);
-    setLogs(['🚀 Initializing autonomous pipeline run...']);
+    setLogs(['Initializing autonomous pipeline run…']);
     setStatus('running');
     setError(null);
 
@@ -126,11 +112,7 @@ export function Dashboard({ settings, setSettings, onOpenSettings, currentResult
     };
 
     try {
-      if (activeStreamCloseRef.current) {
-        activeStreamCloseRef.current();
-        activeStreamCloseRef.current = null;
-      }
-
+      stopActiveStream();
       const res = await launchPipeline(payload);
       setRunId(res.run_id);
 
@@ -138,6 +120,7 @@ export function Dashboard({ settings, setSettings, onOpenSettings, currentResult
         res.run_id,
         (msg) => {
           setLogs((prev) => {
+            // Model training progress lines replace the previous one (same slot)
             const isCandidateProgress = msg.includes('[Model ') || msg.includes('Training candidate machine learning models');
             if (isCandidateProgress) {
               const existingIdx = prev.findIndex((l) => l.includes('[Model ') || l.includes('Training candidate machine learning models'));
@@ -158,21 +141,21 @@ export function Dashboard({ settings, setSettings, onOpenSettings, currentResult
         },
         async () => {
           activeStreamCloseRef.current = null;
-          // Completed
           setIsRunning(false);
           setStatus('completed');
           try {
             const finalRes = await getPipelineResult(res.run_id);
             if (finalRes && finalRes.result) {
               setCurrentResult(finalRes.result);
+              // Adopt the backend's canonical run id so the console header
+              // matches the summary/downloads (the two ids alias the same run).
+              if (finalRes.result.run_id) setRunId(finalRes.result.run_id);
             } else {
-              // Retry shortly if backend is still wrapping up
+              // Backend may still be wrapping up — retry shortly
               setTimeout(async () => {
                 try {
                   const retryRes = await getPipelineResult(res.run_id);
-                  if (retryRes && retryRes.result) {
-                    setCurrentResult(retryRes.result);
-                  }
+                  if (retryRes?.result) setCurrentResult(retryRes.result);
                 } catch (re) {
                   console.error('Retry get result failed', re);
                 }
@@ -191,232 +174,247 @@ export function Dashboard({ settings, setSettings, onOpenSettings, currentResult
     }
   };
 
-  return (
-    <div>
-      {/* Hero Header & Mode Switcher */}
-      <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
-        <div>
-          <div className="eyebrow">Enterprise Autonomous Data Science</div>
-          <h1 style={{ margin: '4px 0 8px 0' }}>Autonomous AI Data Scientist</h1>
-          <p style={{ maxWidth: '620px', margin: 0, color: 'var(--text-secondary)' }}>
-            Transform raw tabular datasets and natural-language objectives into full-lifecycle, production-ready, reproducible Machine Learning projects.
-          </p>
-        </div>
+  const bestMetric = currentResult?.best_metrics
+    ? Object.values(currentResult.best_metrics)[0]
+    : null;
 
-        {/* Execution Mode Selector Card */}
-        <Card style={{ padding: '14px 18px', minWidth: '320px' }}>
-          <div style={{ fontSize: 'var(--text-xs)', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
-            Execution Mode
-          </div>
-          <div style={{ display: 'flex', gap: '6px', background: 'var(--surface-1)', padding: '4px', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-subtle)' }}>
+  return (
+    <>
+      {/* ---- Page head ---- */}
+      <header className="page-head">
+        <div className="eyebrow">Autonomous Data Science Workspace</div>
+        <h1 className="page-title">
+          Launch a <span className="gradient-ink">full ML lifecycle</span> from one objective
+        </h1>
+        <p className="page-lede">
+          Transform a raw tabular dataset and a natural-language goal into a production-ready,
+          reproducible machine-learning project — profiled, cleaned, benchmarked and packaged by a
+          team of specialist agents.
+        </p>
+        <hr className="head-rule" />
+      </header>
+
+      {/* ---- Mode strip ---- */}
+      <section className="mode-strip">
+        <div style={{ minWidth: 260, flex: 1 }}>
+          <div className="mode-strip-label">Execution Mode</div>
+          <div className="segmented" role="group" aria-label="Execution mode">
             <button
-              className={`btn ${!isAiMode ? 'btn-primary' : 'btn-ghost'}`}
-              style={{ flex: 1, padding: '6px 10px', fontSize: 'var(--text-xs)', borderRadius: 'var(--radius-sm)' }}
+              type="button"
+              className={`segmented-btn ${!isAiMode ? 'active' : ''}`}
               onClick={() => handleModeToggle('local')}
             >
-              💻 Local (Offline)
+              <Icon name="zap" size={15} />
+              Local · Offline
             </button>
             <button
-              className={`btn ${isAiMode ? 'btn-primary' : 'btn-ghost'}`}
-              style={{ flex: 1, padding: '6px 10px', fontSize: 'var(--text-xs)', borderRadius: 'var(--radius-sm)' }}
+              type="button"
+              className={`segmented-btn ${isAiMode ? 'active' : ''}`}
               onClick={() => handleModeToggle('ai')}
             >
-              ✨ AI-Powered
+              <Icon name="sparkles" size={15} />
+              AI-Powered
             </button>
           </div>
 
           {isAiMode ? (
-            <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 'var(--text-xs)' }}>
-              <span style={{ color: 'var(--accent-indigo)' }}>
-                🤖 {settings?.selected_provider?.toUpperCase() || 'OPENROUTER'} • {settings?.selected_model?.split('/')?.pop() || 'claude-3.5'}
+            <div className="mode-strip-meta">
+              <Icon name="sparkles" size={14} />
+              <span>
+                {(settings?.selected_provider || 'openrouter').toUpperCase()}
+                <span className="mono" style={{ color: 'var(--ink)' }}>
+                  {' '}
+                  · {settings?.selected_model?.split('/')?.pop() || 'no model selected'}
+                </span>
               </span>
-              <button
-                className="btn btn-ghost"
-                style={{ padding: '2px 6px', fontSize: 'var(--text-xs)' }}
-                onClick={onOpenSettings}
-              >
-                ⚙️ Config
+              <button className="btn btn-ghost btn-sm" onClick={onOpenSettings}>
+                Configure
+                <Icon name="chevron-right" size={13} />
               </button>
             </div>
           ) : (
-            <div style={{ marginTop: '10px', fontSize: 'var(--text-xs)', color: 'var(--text-muted)' }}>
-              ⚡ Deterministic local ML training (No API key needed)
+            <div className="mode-strip-meta">
+              <Icon name="cpu" size={14} />
+              <span>Deterministic local ML training — no API key needed</span>
             </div>
           )}
-        </Card>
-      </div>
+        </div>
+      </section>
 
-      {/* Main Form Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))', gap: '24px' }}>
-        {/* Step 1: Data Source */}
+      {/* ---- Setup grid ---- */}
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: 22, alignItems: 'start' }}>
+        {/* Step 1 — data */}
         <Card>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <span style={{ fontSize: 'var(--text-lg)' }}>1️⃣</span>
-            <h3 style={{ margin: 0 }}>Data Ingestion</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+            <span className="chip chip-ember">Step 1</span>
+            <h3 className="section-title" style={{ fontSize: 'var(--text-lg)' }}>Data ingestion</h3>
           </div>
 
           <FileUploader onFileReady={handleFileReady} currentFile={dataFile} />
 
-          {/* Dataset Preview Collapsible Accordion */}
           {dataFile && previewData && (
-            <div style={{ marginTop: '16px' }}>
-              <button
-                type="button"
-                className="btn btn-ghost"
-                onClick={() => setIsPreviewOpen(!isPreviewOpen)}
-                style={{
-                  width: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '10px 14px',
-                  background: 'var(--surface-2)',
-                  border: '1px solid var(--border-subtle)',
-                  borderRadius: 'var(--radius-md)',
-                  fontSize: 'var(--text-sm)',
-                  color: 'var(--text-primary)',
-                  cursor: 'pointer',
-                }}
-              >
-                <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{isPreviewOpen ? '▾' : '▸'}</span>
-                  <span>🔍 Dataset Preview</span>
-                </span>
-                <span style={{ fontSize: 'var(--text-xs)', color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
-                  {previewData.total_rows} rows × {previewData.total_columns} columns
-                </span>
-              </button>
+            <div style={{ marginTop: 16 }}>
+              <div className="accordion">
+                <button
+                  type="button"
+                  className="accordion-head"
+                  onClick={() => setIsPreviewOpen(!isPreviewOpen)}
+                  aria-expanded={isPreviewOpen}
+                >
+                  <span className="accordion-head-left">
+                    <Icon name="eye" size={15} />
+                    <span>Dataset preview</span>
+                  </span>
+                  <span className="accordion-meta">
+                    {previewData.total_rows} rows × {previewData.total_columns} cols
+                  </span>
+                  <Icon name="chevron-down" size={15} className={`accordion-chevron ${isPreviewOpen ? 'open' : ''}`} />
+                </button>
 
-              {isPreviewOpen && (
-                <div className="data-table-wrap" style={{ marginTop: '8px', maxHeight: '220px', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)' }}>
-                  <table className="data-table">
-                    <thead>
-                      <tr>
-                        {previewData.columns.map((c) => (
-                          <th key={c}>{c}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {previewData.rows.map((r, i) => (
-                        <tr key={i}>
-                          {r.map((v, j) => (
-                            <td key={j}>{String(v)}</td>
+                {isPreviewOpen && (
+                  <div className="accordion-body" style={{ overflowX: 'auto' }}>
+                    <table className="data-table" style={{ minWidth: 480 }}>
+                      <thead>
+                        <tr>
+                          {previewData.columns.map((c) => (
+                            <th key={c}>{c}</th>
                           ))}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                      </thead>
+                      <tbody>
+                        {previewData.rows.map((r, i) => (
+                          <tr key={i}>
+                            {r.map((v, j) => (
+                              <td key={j} style={{ whiteSpace: 'nowrap' }}>{String(v)}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </Card>
 
-        {/* Step 2: Goal & Objective */}
+        {/* Step 2 — objective */}
         <Card>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <span style={{ fontSize: 'var(--text-lg)' }}>2️⃣</span>
-            <h3 style={{ margin: 0 }}>Task & Objective</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
+            <span className="chip chip-ember">Step 2</span>
+            <h3 className="section-title" style={{ fontSize: 'var(--text-lg)' }}>Task &amp; objective</h3>
           </div>
 
-          <div style={{ marginBottom: '16px' }}>
-            <label className="settings-label">Natural Language Goal</label>
+          <div style={{ marginBottom: 16 }}>
+            <label className="field-label" htmlFor="objective">Natural-language goal</label>
             <textarea
-              className="settings-input"
-              rows={3}
+              id="objective"
+              className="textarea"
+              rows={4}
               value={objective}
               onChange={(e) => setObjective(e.target.value)}
-              placeholder="e.g. Predict customer churn and discover key drivers"
-              style={{ resize: 'vertical' }}
+              placeholder="e.g. Predict customer churn and discover the key behavioral drivers"
             />
           </div>
 
-          <div style={{ marginBottom: '18px' }}>
-            <label className="settings-label">Target Column (Leave blank for auto-detection)</label>
+          <div style={{ marginBottom: 18 }}>
+            <label className="field-label" htmlFor="target-col">Target column</label>
             <input
+              id="target-col"
               type="text"
-              className="settings-input"
+              className="input input-mono"
               value={targetCol}
               onChange={(e) => setTargetCol(e.target.value)}
               placeholder="Auto-detect (e.g. churn, label, price)"
             />
+            <div className="field-hint">Leave blank and the Profiler agent will infer the target automatically.</div>
           </div>
 
           {modeNotice && (
-            <div style={{ marginBottom: '14px', padding: '10px 14px', background: 'rgba(59, 130, 246, 0.12)', border: '1px solid rgba(59, 130, 246, 0.35)', borderRadius: 'var(--radius-sm)', fontSize: 'var(--text-xs)', color: '#93c5fd', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span>ℹ️</span>
+            <div className="notice notice-sand" style={{ marginBottom: 14 }}>
+              <Icon name="info" size={16} />
               <span>{modeNotice}</span>
             </div>
           )}
 
           <button
-            className="btn btn-primary btn-primary-lg"
+            className="btn btn-primary btn-lg btn-pill"
             style={{ width: '100%' }}
             onClick={handleLaunch}
             disabled={isRunning || !dataFile}
           >
-            {isRunning ? '⏳ Running Agents...' : '🚀 Launch Autonomous Pipeline'}
-            <span className="btn-icon">↗</span>
+            {isRunning ? (
+              <>
+                <span className="spinner" style={{ width: 18, height: 18, borderWidth: 2.5 }} />
+                Agents running…
+              </>
+            ) : (
+              <>
+                <Icon name="play" size={18} />
+                Launch Autonomous Pipeline
+                <span className="btn-chip">
+                  <Icon name="arrow-right" size={14} strokeWidth={2.2} />
+                </span>
+              </>
+            )}
           </button>
-        </Card>
-      </div>
 
-      {/* Live Pipeline Execution Stream */}
+          {!dataFile && (
+            <div className="field-hint" style={{ textAlign: 'center', marginTop: 10 }}>
+              Select a dataset in Step 1 to enable launch.
+            </div>
+          )}
+        </Card>
+      </section>
+
+      {/* ---- Live console ---- */}
       {(isRunning || logs.length > 0 || error) && (
-        <div className="pipeline-entrance-anim">
-          <PipelineProgress
-            logs={logs}
-            status={status}
-            isRunning={isRunning}
-            runId={runId}
-            error={error}
-          />
-        </div>
+        <PipelineConsole
+          logs={logs}
+          status={status}
+          isRunning={isRunning}
+          runId={runId}
+          error={error}
+        />
       )}
 
-      {/* Top Level Run Summary if result exists and pipeline is not actively running */}
+      {/* ---- Run summary ---- */}
       {currentResult && !isRunning && (
-        <div style={{ marginTop: '40px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-            <div>
-              <div className="eyebrow" style={{ color: 'var(--accent-emerald)' }}>Pipeline Run Completed</div>
-              <h2>Run Summary: <span style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--text-xl)' }}>{currentResult.run_id}</span></h2>
+        <section className="rise-in" style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
+          <div className="run-summary-head">
+            <div className="page-head" style={{ gap: 4 }}>
+              <div className="eyebrow" style={{ color: 'var(--jade)' }}>Pipeline Run Completed</div>
+              <h2 className="section-title">Run summary</h2>
+              <span className="run-id-inline">{currentResult.run_id}</span>
             </div>
-
-            <a
-              href={getZipDownloadUrl(currentResult.run_id)}
-              className="btn btn-primary"
-            >
-              📦 Download Complete Project Archive (.ZIP)
+            <a href={getZipDownloadUrl(currentResult.run_id)} className="btn btn-primary">
+              <Icon name="package" size={16} />
+              Download project archive (.zip)
             </a>
           </div>
 
-          {/* Metric HUD Cards */}
           <div className="stat-hud">
-            <Card className="stat-item" glow="emerald">
+            <Card className="stat-item" jade>
               <div className="stat-label">Best Performing Model</div>
-              <div className="stat-value" style={{ fontSize: 'var(--text-lg)', color: '#6ee7b7' }}>
-                {currentResult.best_model_name}
+              <div className="stat-value jade" style={{ fontSize: 'var(--text-lg)' }}>
+                {currentResult.best_model_name || '—'}
               </div>
             </Card>
 
             <Card className="stat-item">
               <div className="stat-label">Primary Metric Score</div>
-              <div className="stat-value">
-                {currentResult.best_metrics && Object.values(currentResult.best_metrics)[0] != null
-                  ? typeof Object.values(currentResult.best_metrics)[0] === 'number'
-                    ? Object.values(currentResult.best_metrics)[0].toFixed(4)
-                    : Object.values(currentResult.best_metrics)[0]
+              <div className="stat-value ember">
+                {bestMetric != null
+                  ? typeof bestMetric === 'number'
+                    ? bestMetric.toFixed(4)
+                    : bestMetric
                   : 'N/A'}
               </div>
             </Card>
 
             <Card className="stat-item">
-              <div className="stat-label">Candidate Models Exported</div>
-              <div className="stat-value">
-                {currentResult.top_models?.length || 4} Models
-              </div>
+              <div className="stat-label">Models Exported</div>
+              <div className="stat-value">{currentResult.top_models?.length || 4}</div>
             </Card>
 
             <Card className="stat-item">
@@ -427,23 +425,30 @@ export function Dashboard({ settings, setSettings, onOpenSettings, currentResult
             </Card>
           </div>
 
-          {/* Quick Action Navigation links */}
-          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-            <button className="btn btn-ghost" onClick={() => onNavigateTab('leaderboard')}>
-              🏆 View Model Leaderboard →
+          <div className="quick-links">
+            <button className="quick-link" onClick={() => onNavigateTab('leaderboard')}>
+              <Icon name="trophy" size={16} />
+              View model leaderboard
+              <Icon name="arrow-right" size={15} />
             </button>
-            <button className="btn btn-ghost" onClick={() => onNavigateTab('visualizations')}>
-              📈 Explore Generated Visualizations →
+            <button className="quick-link" onClick={() => onNavigateTab('visualizations')}>
+              <Icon name="chart" size={16} />
+              Explore visualizations
+              <Icon name="arrow-right" size={15} />
             </button>
-            <button className="btn btn-ghost" onClick={() => onNavigateTab('report')}>
-              📊 Read Executive Report →
+            <button className="quick-link" onClick={() => onNavigateTab('report')}>
+              <Icon name="report" size={16} />
+              Read executive report
+              <Icon name="arrow-right" size={15} />
             </button>
-            <button className="btn btn-ghost" onClick={() => onNavigateTab('artifacts')}>
-              📂 Browse Artifact Explorer →
+            <button className="quick-link" onClick={() => onNavigateTab('artifacts')}>
+              <Icon name="package" size={16} />
+              Browse artifacts
+              <Icon name="arrow-right" size={15} />
             </button>
           </div>
-        </div>
+        </section>
       )}
-    </div>
+    </>
   );
 }

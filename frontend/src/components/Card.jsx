@@ -1,12 +1,13 @@
 import React from 'react';
 
-export function Card({ children, glow, className = '', ...props }) {
-  const glowClass = glow === 'emerald' ? 'glow-emerald' : glow === 'sapphire' ? 'glow-sapphire' : '';
+export function Card({ children, className = '', style, glow, jade, ...rest }) {
+  const cls = ['card'];
+  if (glow === 'ember') cls.push('card-glow');
+  if (jade) cls.push('card-jade');
+  if (className) cls.push(className);
   return (
-    <div className={`card-shell ${glowClass} ${className}`} {...props}>
-      <div className="card-core">
-        {children}
-      </div>
+    <div className={cls.join(' ')} style={style} {...rest}>
+      {children}
     </div>
   );
 }

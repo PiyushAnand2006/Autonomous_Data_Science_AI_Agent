@@ -2,13 +2,27 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AUDAS — Autonomous AI Data Scientist</title>
-    <meta name="description" content="Autonomous end-to-end AI Data Scientist platform with multi-agent orchestration and automated ML." />
+    <script>
+      /* Dark is the default theme; an explicit "light" choice is honored.
+         Applied before first paint to avoid a flash. */
+      try {
+        if (localStorage.getItem('audas_theme') !== 'light') {
+          document.documentElement.dataset.theme = 'dark';
+        }
+      } catch (e) {
+        document.documentElement.dataset.theme = 'dark';
+      }
+    </script>
+    <meta name="description" content="AUDAS — Autonomous AI Data Scientist. Turn raw tabular data and a natural-language objective into a full, reproducible ML project." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <title>AUDAS · Autonomous AI Data Scientist</title>
   </head>
   <body>
     <div id="root"></div>

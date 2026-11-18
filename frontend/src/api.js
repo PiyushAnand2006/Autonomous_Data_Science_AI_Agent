@@ -1,14 +1,20 @@
 /**
  * AUDAS Frontend API Client
- * Interfaces with the FastAPI backend at http://localhost:8000
+ * Interfaces with the FastAPI backend (default http://localhost:8000).
+ * The wire contract is identical to the original frontend, so this new UI
+ * plugs into the existing backend without any backend changes.
  */
 
 export const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/+$/, '');
+
+/* ---------------- Health ---------------- */
 
 export async function checkHealth() {
   const res = await fetch(`${API_BASE}/api/health`);
   return res.json();
 }
+
+/* ---------------- Dataset upload / sample / preview ---------------- */
 
 export function uploadDataset(file, onProgress) {
   return new Promise((resolve, reject) => {
@@ -38,7 +44,9 @@ export function uploadDataset(file, onProgress) {
         try {
           const errData = JSON.parse(xhr.responseText);
           if (errData.detail) msg = errData.detail;
-        } catch (_) {}
+        } catch (_) {
+          /* keep default message */
+        }
         reject(new Error(msg));
       }
     };
@@ -62,6 +70,8 @@ export async function previewDataset(path, rows = 6) {
   if (!res.ok) throw new Error('Failed to preview dataset');
   return res.json();
 }
+
+/* ---------------- Pipeline execution ---------------- */
 
 export async function launchPipeline(payload) {
   const res = await fetch(`${API_BASE}/api/pipeline/run`, {
@@ -93,11 +103,12 @@ export function subscribeToPipelineStream(runId, onMessage, onError, onComplete)
     }
   };
 
-  eventSource.onerror = async (err) => {
-    console.warn('SSE stream notice:', err);
+  eventSource.onerror = async () => {
+    console.warn('SSE stream notice — falling back to result polling');
     eventSource.close();
-    
-    // Check if backend already finished or has an error before showing fatal error
+
+    // The backend may have finished right as the stream dropped;
+    // check the result endpoint before declaring an error.
     try {
       const res = await getPipelineResult(runId);
       if (res && res.status === 'completed' && res.result) {
@@ -108,9 +119,10 @@ export function subscribeToPipelineStream(runId, onMessage, onError, onComplete)
         if (onError) onError(res.error || 'Pipeline execution failed');
         return;
       }
-    } catch (_) {}
+    } catch (_) {
+      /* fall through to retry */
+    }
 
-    // Polling retry fallback: check result after 2 seconds
     setTimeout(async () => {
       try {
         const retryRes = await getPipelineResult(runId);
@@ -118,7 +130,9 @@ export function subscribeToPipelineStream(runId, onMessage, onError, onComplete)
           if (onComplete) onComplete('Pipeline completed successfully!');
           return;
         }
-      } catch (_) {}
+      } catch (_) {
+        /* ignore */
+      }
       if (onError) onError('Pipeline connection closed. Please check status.');
     }, 2000);
   };
@@ -137,6 +151,8 @@ export async function getLatestPipelineResult() {
   if (!res.ok) throw new Error('Failed to fetch latest result');
   return res.json();
 }
+
+/* ---------------- Files & artifacts ---------------- */
 
 export async function listPipelineFiles(runId) {
   const res = await fetch(`${API_BASE}/api/pipeline/${runId}/files`);
@@ -162,6 +178,8 @@ export async function listVisualizations(runId) {
   if (!res.ok) throw new Error('Failed to fetch visualizations');
   return res.json();
 }
+
+/* ---------------- Settings ---------------- */
 
 export async function getSettings() {
   const res = await fetch(`${API_BASE}/api/settings`);
